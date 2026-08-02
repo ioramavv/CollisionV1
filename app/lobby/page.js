@@ -9,8 +9,12 @@ export default function LobbyPage() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [openGames, setOpenGames] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [myGames, setMyGames] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     let channel;
@@ -41,9 +45,18 @@ export default function LobbyPage() {
       .from("games")
       .select("id, player_a, status, created_at, profiles:player_a(username)")
       .eq("status", "waiting")
+      .is("invited_id", null)
       .neq("player_a", userId)
       .order("created_at", { ascending: false });
     setOpenGames(waiting || []);
+
+    const { data: invited } = await supabase
+      .from("games")
+      .select("id, player_a, status, created_at, profiles:player_a(username)")
+      .eq("status", "waiting")
+      .eq("invited_id", userId)
+      .order("created_at", { ascending: false });
+    setInvites(invited || []);
 
     const { data: mine } = await supabase
       .from("games")
@@ -54,13 +67,28 @@ export default function LobbyPage() {
     setMyGames(mine || []);
   }
 
-  async function createGame() {
+  async function createGame(invitedId = null) {
     const { data, error } = await supabase
       .from("games")
-      .insert({ player_a: user.id, status: "waiting", state: freshState() })
+      .insert({ player_a: user.id, invited_id: invitedId, status: "waiting", state: freshState() })
       .select()
       .single();
     if (!error) router.push(`/game/${data.id}`);
+  }
+
+  async function searchUsers(e) {
+    e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) { setSearchResults([]); return; }
+    setSearching(true);
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .ilike("username", `%${query}%`)
+      .neq("id", user.id)
+      .limit(8);
+    setSearchResults(data || []);
+    setSearching(false);
   }
 
   async function joinGame(gameId) {
@@ -91,7 +119,51 @@ export default function LobbyPage() {
         </div>
       </div>
 
-      <button className="btn btn-solid w-fit" onClick={createGame}>+ Nieuwe partij</button>
+      <button className="btn btn-solid w-fit" onClick={() => createGame()}>+ Nieuwe partij</button>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+          Speler uitnodigen
+        </h2>
+        <form onSubmit={searchUsers} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Zoek op gebruikersnaam..."
+            className="input flex-1"
+          />
+          <button className="btn" type="submit" disabled={searching}>Zoeken</button>
+        </form>
+        {searchResults.length > 0 && (
+          <ul className="flex flex-col gap-2 mt-3">
+            {searchResults.map((p) => (
+              <li key={p.id} className="flex items-center justify-between text-sm">
+                <span className="mono" style={{ color: "var(--muted)" }}>{p.username}</span>
+                <button className="btn" onClick={() => createGame(p.id)}>Uitnodigen</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {invites.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+            Uitnodigingen voor jou
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {invites.map((g) => (
+              <li key={g.id} className="flex items-center justify-between text-sm">
+                <span className="mono" style={{ color: "var(--muted)" }}>
+                  {g.profiles?.username || "onbekend"} nodigt je uit
+                </span>
+                <button className="btn" onClick={() => joinGame(g.id)}>Accepteren</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {myGames.length > 0 && (
         <section className="panel">

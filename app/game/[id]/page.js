@@ -104,9 +104,13 @@ export default function GamePage() {
 
   return (
     <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6">
-      <h1 className="text-lg font-extrabold uppercase tracking-widest">
-        Colli<span style={{ color: "var(--gold)" }}>sion</span>
-      </h1>
+      <div className="w-full flex items-center justify-between max-w-md">
+        <button className="btn" onClick={() => router.push("/lobby")}>← Lobby</button>
+        <h1 className="text-lg font-extrabold uppercase tracking-widest">
+          Colli<span style={{ color: "var(--gold)" }}>sion</span>
+        </h1>
+        <div style={{ width: "5.5rem" }} />
+      </div>
 
       {!myRole && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
