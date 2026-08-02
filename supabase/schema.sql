@@ -99,4 +99,12 @@ create trigger games_set_updated_at
   for each row execute procedure set_updated_at();
 
 -- 3) Realtime aanzetten voor de games-tabel
-alter publication supabase_realtime add table games;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'games'
+  ) then
+    alter publication supabase_realtime add table games;
+  end if;
+end $$;
