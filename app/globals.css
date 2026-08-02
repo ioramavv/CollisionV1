@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #17140f;
+  --panel: #221e1a;
+  --panel-line: #3d362c;
+  --board-dark: #d8bf8c;
+  --board-light: #ecdcb4;
+  --gold: #c17f3e;
+  --gold-dim: rgba(193, 127, 62, 0.2);
+  --walnut: #4a3222;
+  --maple: #f1e3c2;
+  --text: #f0ece2;
+  --muted: #a89b87;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.btn {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--gold-dim);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-solid {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: #17140f;
+  font-weight: 600;
+}
+
+.input {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  padding: 24px;
+}
