@@ -44,6 +44,10 @@ create table if not exists games (
   id uuid primary key default gen_random_uuid(),
   player_a uuid references profiles(id) not null,
   player_b uuid references profiles(id),
+  -- Als gezet: deze partij is een directe uitnodiging en is (totdat iemand
+  -- meespeelt) alleen zichtbaar voor player_a en invited_id, niet voor
+  -- iedereen. Null betekent: openbare partij, zoals voorheen.
+  invited_id uuid references profiles(id),
   status text not null default 'waiting', -- waiting | active | finished
   state jsonb not null,
   created_at timestamptz default now(),
@@ -51,18 +55,31 @@ create table if not exists games (
 );
 
 alter table games enable row level security;
+alter table games add column if not exists invited_id uuid references profiles(id);
 
-create policy "Partijen zijn zichtbaar voor iedereen"
+drop policy if exists "Partijen zijn zichtbaar voor iedereen" on games;
+create policy "Open partijen zijn zichtbaar voor iedereen, uitnodigingen alleen voor betrokkenen"
   on games for select
-  using (true);
+  using (
+    auth.uid() = player_a
+    or auth.uid() = player_b
+    or auth.uid() = invited_id
+    or invited_id is null
+  );
 
+drop policy if exists "Ingelogde gebruiker mag een partij aanmaken" on games;
 create policy "Ingelogde gebruiker mag een partij aanmaken"
   on games for insert
   with check (auth.uid() = player_a);
 
-create policy "Alleen de twee spelers mogen de partij updaten"
+drop policy if exists "Alleen de twee spelers mogen de partij updaten" on games;
+create policy "Spelers mogen updaten, toegestane spelers mogen meespelen"
   on games for update
-  using (auth.uid() = player_a or auth.uid() = player_b);
+  using (
+    auth.uid() = player_a
+    or auth.uid() = player_b
+    or (status = 'waiting' and (invited_id is null or auth.uid() = invited_id))
+  );
 
 -- updated_at automatisch bijwerken
 create or replace function set_updated_at()
