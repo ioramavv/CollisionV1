@@ -10,14 +10,17 @@ create table if not exists profiles (
 
 alter table profiles enable row level security;
 
+drop policy if exists "Profielen zijn zichtbaar voor iedereen" on profiles;
 create policy "Profielen zijn zichtbaar voor iedereen"
   on profiles for select
   using (true);
 
+drop policy if exists "Gebruiker mag alleen eigen profiel aanmaken" on profiles;
 create policy "Gebruiker mag alleen eigen profiel aanmaken"
   on profiles for insert
   with check (auth.uid() = id);
 
+drop policy if exists "Gebruiker mag alleen eigen profiel aanpassen" on profiles;
 create policy "Gebruiker mag alleen eigen profiel aanpassen"
   on profiles for update
   using (auth.uid() = id);
