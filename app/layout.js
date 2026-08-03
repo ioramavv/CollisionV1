@@ -1,4 +1,5 @@
 import "./globals.css";
+import PageTransition from "./PageTransition";
 
 export const metadata = {
   title: "Collision — collision.iorama.nl",
@@ -8,7 +9,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="nl">
-      <body>{children}</body>
+      <body>
+        <PageTransition>{children}</PageTransition>
+      </body>
     </html>
   );
 }
