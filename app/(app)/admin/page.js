@@ -1,9 +1,23 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, MessageSquare, Swords, Trash2 } from "lucide-react";
+import { Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Badge, Rating } from "@/lib/ui";
+
+// Beknopt overzicht: spelregel -> welke code/mechanic 'm afdwingt. Puur
+// referentiemateriaal voor de admin, geen live data dus geen state nodig.
+const RULES = [
+  { rule: "Doel", detail: "Als eerste met je pion het centrumvakje bereiken.", mechanic: "isCenter(), state.winner" },
+  { rule: "Stuiterbeweging", detail: "Een stuk schuift door tot het botst op een ander stuk, de bordrand, of (bij hulpstukken) het centrum.", mechanic: "slide()" },
+  { rule: "Centrum betreden", detail: "Alleen pionnen mogen het centrum betreden en stoppen daar; hulpstukken stuiteren er net voor terug.", mechanic: "slide(..., isPawn)" },
+  { rule: "Hulpstuk plaatsen", detail: "Elke speler heeft 5 hulpstukken; plaatsen op een leeg, niet-centrumvakje beëindigt de beurt meteen.", mechanic: "applyPlaceTool()" },
+  { rule: "Beurt met meerdere stuiters", detail: "Eén zelfgekozen stuk (pion of eigen hulpstuk) mag binnen dezelfde beurt herhaaldelijk stuiteren, ook van richting wisselend, tot de speler stopt of vastloopt.", mechanic: "applyMove(), anyDirectionAvailable()" },
+  { rule: "Insluitregel", detail: "Geen zet of plaatsing mag een pion (van jezelf of de tegenstander) volledig afsnijden van het centrum.", mechanic: "bothPawnsCanReachCenter(), pawnCanReachCenter()" },
+  { rule: "Terugkijken", detail: "Elke eerdere bordstaat wordt puur uit de zet-geschiedenis gereconstrueerd, niet apart opgeslagen.", mechanic: "reconstructBoard(), state.history" },
+  { rule: "Computerspeler", detail: "4 niveaus: Makkelijk (willekeurig), Gemiddeld (1-ply heuristiek), Moeilijk/Expert (minimax + alfa-bèta, 2 resp. 3 zetten vooruit).", mechanic: "lib/collisionAI.js" },
+  { rule: "Rating", detail: "Elo-systeem (start 1200) na elke afgeronde partij tussen twee échte spelers; K-factor 40/20/10 op basis van ervaring/rating.", mechanic: "apply_game_rating() (SQL)" },
+];
 
 export default function AdminPage() {
   const router = useRouter();
@@ -154,6 +168,26 @@ export default function AdminPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="panel">
+        <details>
+          <summary
+            className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2"
+            style={{ color: "var(--accent)" }}
+          >
+            <BookOpen size={15} /> Spelmechanica
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
+          <ul className="flex flex-col gap-2 mt-3">
+            {RULES.map((r) => (
+              <li key={r.rule} className="text-xs" style={{ color: "var(--muted)" }}>
+                <strong style={{ color: "var(--text)" }}>{r.rule}</strong> — {r.detail}{" "}
+                <span className="mono" style={{ opacity: 0.75 }}>{r.mechanic}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
       </section>
     </main>
   );
