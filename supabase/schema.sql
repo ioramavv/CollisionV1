@@ -168,13 +168,52 @@ create trigger archived_games_enforce_limit
   after insert on archived_games
   for each row execute procedure enforce_archive_limit();
 
--- 4) Realtime aanzetten voor de games-tabel
-do $$
+-- 4) Vriendschappen. Eén rij per verzoek/vriendschap; status gaat van
+--    'pending' naar 'accepted'. Betrokkenen zijn requester en addressee.
+create table if not exists friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid references profiles(id) not null,
+  addressee_id uuid references profiles(id) not null,
+  status text not null default 'pending', -- pending | accepted
+  created_at timestamptz default now(),
+  check (requester_id <> addressee_id),
+  unique (requester_id, addressee_id)
+);
+
+alter table friendships enable row level security;
+
+select _drop_all_policies('friendships', 'SELECT');
+create policy "Betrokkenen zien hun eigen vriendschappen"
+  on friendships for select
+  using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+select _drop_all_policies('friendships', 'INSERT');
+create policy "Gebruiker mag een vriendverzoek sturen"
+  on friendships for insert
+  with check (auth.uid() = requester_id);
+
+select _drop_all_policies('friendships', 'UPDATE');
+create policy "Ontvanger mag verzoek accepteren"
+  on friendships for update
+  using (auth.uid() = addressee_id);
+
+select _drop_all_policies('friendships', 'DELETE');
+create policy "Betrokkenen mogen verzoek of vriendschap verwijderen"
+  on friendships for delete
+  using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+-- 5) Realtime aanzetten voor de games- en friendships-tabellen
+create or replace function _ensure_realtime(p_table text)
+returns void as $$
 begin
   if not exists (
     select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'games'
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = p_table
   ) then
-    alter publication supabase_realtime add table games;
+    execute format('alter publication supabase_realtime add table %I', p_table);
   end if;
-end $$;
+end;
+$$ language plpgsql;
+
+select _ensure_realtime('games');
+select _ensure_realtime('friendships');

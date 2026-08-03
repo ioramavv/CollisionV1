@@ -7,12 +7,12 @@ import { freshState } from "@/lib/collisionEngine";
 export default function LobbyPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [openGames, setOpenGames] = useState([]);
   const [invites, setInvites] = useState([]);
   const [myGames, setMyGames] = useState([]);
   const [archivedGames, setArchivedGames] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newGameStep, setNewGameStep] = useState(null); // null | "choose" | "invite"
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -26,9 +26,6 @@ export default function LobbyPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       setUser(user);
-
-      const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-      setProfile(prof);
 
       await refreshGames(user.id);
       setLoading(false);
@@ -99,6 +96,12 @@ export default function LobbyPage() {
     if (!error) router.push(`/game/${data.id}`);
   }
 
+  function closeNewGameModal() {
+    setNewGameStep(null);
+    setSearchQuery("");
+    setSearchResults([]);
+  }
+
   async function searchUsers(e) {
     e.preventDefault();
     const query = searchQuery.trim();
@@ -133,54 +136,65 @@ export default function LobbyPage() {
     router.push(`/game/${gameId}`);
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.push("/");
-  }
-
   if (loading) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-2xl mx-auto flex flex-col gap-6">
+      {newGameStep && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem",
+          }}
+        >
+          <div className="panel" style={{ maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--gold)" }}>Nieuwe partij</h2>
+              <button className="btn" onClick={closeNewGameModal}>×</button>
+            </div>
+
+            {newGameStep === "choose" && (
+              <div className="flex flex-col gap-2">
+                <button className="btn btn-solid" onClick={() => createGame()}>Open partij starten</button>
+                <button className="btn" onClick={() => setNewGameStep("invite")}>Speler uitnodigen</button>
+              </div>
+            )}
+
+            {newGameStep === "invite" && (
+              <div className="flex flex-col gap-3">
+                <form onSubmit={searchUsers} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Zoek op gebruikersnaam..."
+                    className="input flex-1"
+                    autoFocus
+                  />
+                  <button className="btn" type="submit" disabled={searching}>Zoeken</button>
+                </form>
+                {searchResults.length > 0 && (
+                  <ul className="flex flex-col gap-2">
+                    {searchResults.map((p) => (
+                      <li key={p.id} className="flex items-center justify-between text-sm">
+                        <span className="mono" style={{ color: "var(--muted)" }}>{p.username}</span>
+                        <button className="btn" onClick={() => createGame(p.id)}>Uitnodigen</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-extrabold uppercase tracking-widest">Lobby</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm mono" style={{ color: "var(--muted)" }}>
-            {profile?.username}
-          </span>
-          <button className="btn" onClick={signOut}>Uitloggen</button>
-        </div>
+        <button className="btn btn-solid" onClick={() => setNewGameStep("choose")}>+ Nieuwe partij</button>
       </div>
 
-      <button className="btn btn-solid w-fit" onClick={() => createGame()}>+ Nieuwe partij</button>
-
       {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
-
-      <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
-          Speler uitnodigen
-        </h2>
-        <form onSubmit={searchUsers} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Zoek op gebruikersnaam..."
-            className="input flex-1"
-          />
-          <button className="btn" type="submit" disabled={searching}>Zoeken</button>
-        </form>
-        {searchResults.length > 0 && (
-          <ul className="flex flex-col gap-2 mt-3">
-            {searchResults.map((p) => (
-              <li key={p.id} className="flex items-center justify-between text-sm">
-                <span className="mono" style={{ color: "var(--muted)" }}>{p.username}</span>
-                <button className="btn" onClick={() => createGame(p.id)}>Uitnodigen</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       {invites.length > 0 && (
         <section className="panel">
