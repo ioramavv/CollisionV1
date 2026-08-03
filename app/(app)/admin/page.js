@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, MessageSquare, Swords, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { Avatar, Badge } from "@/lib/ui";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -97,21 +99,20 @@ export default function AdminPage() {
         <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
           {users.map((u) => (
             <li key={u.id} className="flex items-center justify-between text-sm">
-              <span className="mono" style={{ color: "var(--muted)" }}>{u.username}</span>
-              <span
-                className="mono"
-                style={{ color: onlineIds.has(u.id) ? "var(--gold)" : "var(--muted)", fontSize: "12px" }}
-              >
-                {onlineIds.has(u.id) ? "● online" : "○ offline"}
+              <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                <Avatar username={u.username} /> {u.username}
               </span>
+              <Badge tone={onlineIds.has(u.id) ? "online" : "offline"}>
+                {onlineIds.has(u.id) ? "online" : "offline"}
+              </Badge>
             </li>
           ))}
         </ul>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
-          Feedback
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--gold)" }}>
+          <MessageSquare size={15} /> Feedback
         </h2>
         {feedback.length === 0 && (
           <p className="text-sm" style={{ color: "var(--muted)" }}>Nog geen feedback ontvangen.</p>
@@ -119,7 +120,8 @@ export default function AdminPage() {
         <ul className="flex flex-col gap-3 max-h-96 overflow-y-auto">
           {feedback.map((f) => (
             <li key={f.id} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
-              <div className="mono" style={{ color: "var(--muted)", fontSize: "12px" }}>
+              <div className="mono flex items-center gap-2" style={{ color: "var(--muted)", fontSize: "12px" }}>
+                <Avatar username={f.profiles?.username} size={18} />
                 {f.profiles?.username || "onbekend"} · {new Date(f.created_at).toLocaleString("nl-NL")}
               </div>
               <div>{f.message}</div>
@@ -129,8 +131,8 @@ export default function AdminPage() {
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
-          Actieve partijen — {activeGames.length}
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--gold)" }}>
+          <Swords size={15} /> Actieve partijen — {activeGames.length}
         </h2>
         {activeGames.length === 0 && (
           <p className="text-sm" style={{ color: "var(--muted)" }}>Geen actieve partijen.</p>
@@ -138,13 +140,15 @@ export default function AdminPage() {
         <ul className="flex flex-col gap-2">
           {activeGames.map((g) => (
             <li key={g.id} className="flex items-center justify-between text-sm">
-              <span className="mono" style={{ color: "var(--muted)" }}>
-                {g.a?.username || "onbekend"} vs {g.b?.username || "onbekend"}
+              <span className="mono flex items-center gap-1" style={{ color: "var(--muted)" }}>
+                <Avatar username={g.a?.username} size={22} /> {g.a?.username || "onbekend"}
+                <span style={{ margin: "0 4px" }}>vs</span>
+                <Avatar username={g.b?.username} size={22} /> {g.b?.username || "onbekend"}
               </span>
               <div className="flex items-center gap-2">
-                <a className="btn" href={`/game/${g.id}`}>Bekijk</a>
-                <button className="btn" onClick={() => deleteGame(g.id)} disabled={deletingId === g.id}>
-                  {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+                <a className="btn" href={`/game/${g.id}`}><Eye size={14} /> Bekijk</a>
+                <button className="btn btn-danger" onClick={() => deleteGame(g.id)} disabled={deletingId === g.id}>
+                  <Trash2 size={14} /> {deletingId === g.id ? "Bezig..." : "Verwijderen"}
                 </button>
               </div>
             </li>

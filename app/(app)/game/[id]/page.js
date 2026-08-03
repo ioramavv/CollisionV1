@@ -2,7 +2,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
+  ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye,
+} from "lucide-react";
 import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
+import { Avatar } from "@/lib/ui";
 
 // Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
 // van toepassing), zodat we dat kunnen laten "schuiven" i.p.v. laten
@@ -283,6 +288,9 @@ export default function GamePage() {
               position: "relative", zIndex: 61, animation: "win-title-pop 420ms ease-out both",
             }}
           >
+            {myRole && myRole === state.winner && (
+              <Trophy size={40} style={{ margin: "0 auto", color: "var(--gold)" }} />
+            )}
             <h2 className="text-lg font-extrabold uppercase tracking-widest">
               {!myRole
                 ? "De match is beëindigd"
@@ -293,7 +301,7 @@ export default function GamePage() {
             {archiveError && <p className="text-xs" style={{ color: "#e07a5f" }}>{archiveError}</p>}
             {myRole && (
               <button className="btn" onClick={archiveMatch} disabled={archiving || archived}>
-                {archived ? "Gearchiveerd ✓" : archiving ? "Bezig..." : "Archiveer deze partij"}
+                <Archive size={15} /> {archived ? "Gearchiveerd ✓" : archiving ? "Bezig..." : "Archiveer deze partij"}
               </button>
             )}
             <button className="btn btn-solid" onClick={() => router.push("/lobby")}>Terug naar lobby</button>
@@ -302,8 +310,8 @@ export default function GamePage() {
       )}
 
       {!myRole && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Je kijkt toe als toeschouwer — je bent geen speler in deze partij.
+        <p className="text-sm flex items-center gap-2" style={{ color: "var(--muted)" }}>
+          <Eye size={15} /> Je kijkt toe als toeschouwer — je bent geen speler in deze partij.
         </p>
       )}
 
@@ -394,13 +402,13 @@ export default function GamePage() {
           {!viewingHistory && selected && isMyTurn && (
             <div className="grid grid-cols-3 gap-1">
               <div />
-              <DirBtn label="▲" onClick={() => handleMove("up")} />
+              <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
               <div />
-              <DirBtn label="◀" onClick={() => handleMove("left")} />
-              <button className="btn" onClick={endTurn} disabled={!movedThisTurn}>STOP</button>
-              <DirBtn label="▶" onClick={() => handleMove("right")} />
+              <DirBtn icon={ArrowLeft} onClick={() => handleMove("left")} />
+              <button className="btn" onClick={endTurn} disabled={!movedThisTurn}><Square size={14} /> STOP</button>
+              <DirBtn icon={ArrowRight} onClick={() => handleMove("right")} />
               <div />
-              <DirBtn label="▼" onClick={() => handleMove("down")} />
+              <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />
               <div />
             </div>
           )}
@@ -413,13 +421,15 @@ export default function GamePage() {
                 </p>
               )}
               <div className="flex items-center gap-2">
-                <button className="btn" onClick={stepHistoryBack} disabled={historyIndex === -1}>◀ Vorige zet</button>
+                <button className="btn btn-icon" onClick={stepHistoryBack} disabled={historyIndex === -1}><ChevronLeft size={16} /></button>
                 <span className="text-xs mono" style={{ color: "var(--muted)" }}>
                   {viewingHistory ? `Zet ${historyIndex + 1} / ${history.length}` : "Nu"}
                 </span>
-                <button className="btn" onClick={stepHistoryForward} disabled={!viewingHistory}>Volgende zet ▶</button>
+                <button className="btn btn-icon" onClick={stepHistoryForward} disabled={!viewingHistory}><ChevronRight size={16} /></button>
                 {viewingHistory && (
-                  <button className="btn btn-solid" onClick={() => setHistoryIndex(null)}>Terug naar nu</button>
+                  <button className="btn btn-solid" onClick={() => setHistoryIndex(null)}>
+                    <RotateCcw size={14} /> Terug naar nu
+                  </button>
                 )}
               </div>
             </div>
@@ -427,7 +437,8 @@ export default function GamePage() {
         </div>
 
         <aside className="panel w-64 flex flex-col gap-3">
-          <p className="text-sm">
+          <p className="text-sm flex items-center gap-2">
+            <Avatar username={nameFor(state.winner || state.turn)} size={22} />
             {state.winner
               ? `${nameFor(state.winner)} heeft gewonnen!`
               : isMyTurn ? "Jij bent aan zet" : `${nameFor(state.turn)} is aan zet`}
@@ -437,10 +448,10 @@ export default function GamePage() {
             <div>Hulpstukken B: {state.toolsRemaining.B}</div>
           </div>
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[myRole] <= 0}>
-            {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
+            <Hammer size={15} /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
           </button>
           {myRole && !state.winner && (
-            <button className="btn" onClick={resign}>Opgeven</button>
+            <button className="btn btn-danger" onClick={resign}><Flag size={15} /> Opgeven</button>
           )}
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
           <div className="text-xs mono flex flex-col gap-1 max-h-48 overflow-y-auto border-t pt-2" style={{ borderColor: "var(--panel-line)", color: "var(--muted)" }}>
@@ -452,6 +463,6 @@ export default function GamePage() {
   );
 }
 
-function DirBtn({ label, onClick }) {
-  return <button className="btn" onClick={onClick}>{label}</button>;
+function DirBtn({ icon: Icon, onClick }) {
+  return <button className="btn btn-icon" onClick={onClick}><Icon size={16} /></button>;
 }

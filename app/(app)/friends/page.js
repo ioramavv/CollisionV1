@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search, UserPlus, Check, X, Ban, UserMinus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { Avatar } from "@/lib/ui";
 
 export default function FriendsPage() {
   const router = useRouter();
@@ -116,14 +118,18 @@ export default function FriendsPage() {
             placeholder="Zoek op gebruikersnaam..."
             className="input flex-1"
           />
-          <button className="btn" type="submit" disabled={searching}>Zoeken</button>
+          <button className="btn btn-icon" type="submit" disabled={searching}><Search size={15} /></button>
         </form>
         {searchResults.length > 0 && (
           <ul className="flex flex-col gap-2 mt-3">
             {searchResults.map((p) => (
               <li key={p.id} className="flex items-center justify-between text-sm">
-                <span className="mono" style={{ color: "var(--muted)" }}>{p.username}</span>
-                <button className="btn" onClick={() => sendRequest(p.id)}>Vriend worden</button>
+                <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                  <Avatar username={p.username} /> {p.username}
+                </span>
+                <button className="btn" onClick={() => sendRequest(p.id)}>
+                  <UserPlus size={15} /> Vriend worden
+                </button>
               </li>
             ))}
           </ul>
@@ -138,12 +144,13 @@ export default function FriendsPage() {
           <ul className="flex flex-col gap-2">
             {incoming.map((r) => (
               <li key={r.id} className="flex items-center justify-between text-sm">
-                <span className="mono" style={{ color: "var(--muted)" }}>
+                <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                  <Avatar username={otherUsername(r, user.id)} />
                   {otherUsername(r, user.id) || "onbekend"} wil vrienden worden
                 </span>
                 <div className="flex items-center gap-2">
-                  <button className="btn" onClick={() => acceptRequest(r.id)}>Accepteren</button>
-                  <button className="btn" onClick={() => removeRequest(r.id)}>Afwijzen</button>
+                  <button className="btn btn-success" onClick={() => acceptRequest(r.id)}><Check size={15} /> Accepteren</button>
+                  <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><X size={15} /> Afwijzen</button>
                 </div>
               </li>
             ))}
@@ -159,10 +166,11 @@ export default function FriendsPage() {
           <ul className="flex flex-col gap-2">
             {outgoing.map((r) => (
               <li key={r.id} className="flex items-center justify-between text-sm">
-                <span className="mono" style={{ color: "var(--muted)" }}>
+                <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                  <Avatar username={otherUsername(r, user.id)} />
                   Verzoek naar {otherUsername(r, user.id) || "onbekend"}
                 </span>
-                <button className="btn" onClick={() => removeRequest(r.id)}>Annuleren</button>
+                <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><Ban size={15} /> Annuleren</button>
               </li>
             ))}
           </ul>
@@ -181,8 +189,10 @@ export default function FriendsPage() {
         <ul className="flex flex-col gap-2">
           {friends.map((r) => (
             <li key={r.id} className="flex items-center justify-between text-sm">
-              <span className="mono" style={{ color: "var(--muted)" }}>{otherUsername(r, user.id) || "onbekend"}</span>
-              <button className="btn" onClick={() => removeRequest(r.id)}>Verwijderen</button>
+              <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                <Avatar username={otherUsername(r, user.id)} /> {otherUsername(r, user.id) || "onbekend"}
+              </span>
+              <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><UserMinus size={15} /> Verwijderen</button>
             </li>
           ))}
         </ul>
