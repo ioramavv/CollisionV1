@@ -21,7 +21,7 @@ export default function AdminPage() {
       if (!user) { router.push("/login"); return; }
 
       const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).single();
-      if (profile?.username !== "jorADMIN") {
+      if (profile?.username !== "JorADMIN") {
         router.push("/lobby");
         return;
       }
