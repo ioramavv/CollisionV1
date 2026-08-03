@@ -440,7 +440,7 @@ export default function GamePage() {
               height: "min(88vw, 484px)",
               border: "10px solid var(--walnut)",
               overflow: "hidden",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+              boxShadow: "0 0 0 1px rgba(240, 236, 226, 0.18), 0 8px 24px rgba(0,0,0,0.5)",
             }}
           >
             {Array.from({ length: SIZE }).map((_, r) =>
@@ -477,7 +477,9 @@ export default function GamePage() {
                         borderRadius: cell.type === "pawn" ? "50%" : "3px",
                         transform: cell.type === "tool" ? "rotate(45deg)" : "none",
                         background: cell.owner === "A" ? "var(--walnut)" : "var(--maple)",
-                        boxShadow: isSel ? "0 0 0 2px var(--accent)" : "0 1px 3px rgba(0,0,0,0.35)",
+                        boxShadow: isSel
+                          ? "0 0 0 2px var(--accent)"
+                          : "0 0 0 1.5px rgba(23, 20, 15, 0.55), 0 1px 3px rgba(0,0,0,0.4)",
                       }} />
                     )}
                   </div>
@@ -506,7 +508,7 @@ export default function GamePage() {
                   borderRadius: slideAnim.piece.type === "pawn" ? "50%" : "3px",
                   transform: slideAnim.piece.type === "tool" ? "rotate(45deg)" : "none",
                   background: slideAnim.piece.owner === "A" ? "var(--walnut)" : "var(--maple)",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                  boxShadow: "0 0 0 1.5px rgba(23, 20, 15, 0.55), 0 1px 3px rgba(0,0,0,0.4)",
                 }} />
               </div>
             )}
