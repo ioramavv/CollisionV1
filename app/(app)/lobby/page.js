@@ -20,6 +20,7 @@ export default function LobbyPage() {
   const [joinError, setJoinError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   useEffect(() => {
     let channel;
@@ -42,6 +43,15 @@ export default function LobbyPage() {
     return () => { if (channel) supabase.removeChannel(channel); };
   }, [router]);
 
+  useEffect(() => {
+    if (!openMenuId) return;
+    function handleClick(e) {
+      if (!e.target.closest?.(`[data-menu-id="${openMenuId}"]`)) setOpenMenuId(null);
+    }
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [openMenuId]);
+
   async function refreshGames(userId) {
     const { data: waiting } = await supabase
       .from("games")
@@ -62,7 +72,7 @@ export default function LobbyPage() {
 
     const { data: mine } = await supabase
       .from("games")
-      .select("id, status, player_a, player_b, invited_id, created_at, a:player_a(username), b:player_b(username)")
+      .select("id, status, player_a, player_b, invited_id, created_at, turn:state->>turn, a:player_a(username), b:player_b(username)")
       .or(`player_a.eq.${userId},player_b.eq.${userId}`)
       .neq("status", "finished")
       .order("created_at", { ascending: false });
@@ -243,17 +253,33 @@ export default function LobbyPage() {
               const statusLabel = g.status === "waiting" ? "wacht op tegenstander" : "actief";
               const typeLabel = g.invited_id ? "gesloten match" : "open match";
               const canDelete = g.status === "waiting" && g.player_a === user.id;
+              const myRoleInGame = g.player_a === user.id ? "A" : "B";
+              const isMyTurn = g.status === "active" && g.turn === myRoleInGame;
               return (
                 <li key={g.id} className="flex items-center justify-between text-sm">
-                  <span className="mono" style={{ color: "var(--muted)" }}>
+                  <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                     {opponentName ? `Partij met ${opponentName}` : "Partij"} · {statusLabel} · {typeLabel}
+                    {isMyTurn && (
+                      <span style={{ color: "var(--gold)", fontWeight: 600 }}>● Jouw beurt!</span>
+                    )}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <a className="btn" href={`/game/${g.id}`}>Openen</a>
-                    {canDelete && (
-                      <button className="btn" onClick={() => deleteGame(g.id)} disabled={deletingId === g.id}>
-                        {deletingId === g.id ? "Bezig..." : "Verwijderen"}
-                      </button>
+                  <div data-menu-id={g.id} style={{ position: "relative" }}>
+                    <button className="btn" onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}>⋯</button>
+                    {openMenuId === g.id && (
+                      <div
+                        className="panel"
+                        style={{
+                          position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 20,
+                          padding: 8, display: "flex", flexDirection: "column", gap: 4, minWidth: 150,
+                        }}
+                      >
+                        <a className="btn" href={`/game/${g.id}`}>Openen</a>
+                        {canDelete && (
+                          <button className="btn" onClick={() => { setOpenMenuId(null); deleteGame(g.id); }} disabled={deletingId === g.id}>
+                            {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </li>
