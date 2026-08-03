@@ -13,7 +13,7 @@ const RULES = [
   { rule: "Centrum betreden", detail: "Alleen pionnen mogen het centrum betreden en stoppen daar; hulpstukken stuiteren er net voor terug.", mechanic: "slide(..., isPawn)" },
   { rule: "Hulpstuk plaatsen", detail: "Elke speler heeft 5 hulpstukken; plaatsen op een leeg, niet-centrumvakje beëindigt de beurt meteen.", mechanic: "applyPlaceTool()" },
   { rule: "Beurt met meerdere stuiters", detail: "Eén zelfgekozen stuk (pion of eigen hulpstuk) mag binnen dezelfde beurt herhaaldelijk stuiteren, ook van richting wisselend, tot de speler stopt of vastloopt.", mechanic: "applyMove(), anyDirectionAvailable()" },
-  { rule: "Insluitregel", detail: "Geen zet of plaatsing mag een pion (van jezelf of de tegenstander) volledig afsnijden van het centrum.", mechanic: "bothPawnsCanReachCenter(), pawnCanReachCenter()" },
+  { rule: "Insluitregel", detail: "Je beurt mag nooit eindigen op een positie die een pion (van jezelf of de tegenstander) volledig afsnijdt van het centrum — er doorheen bewegen (zonder daar te stoppen) mag wel.", mechanic: "bothPawnsCanReachCenter(), pawnCanReachCenter()" },
   { rule: "Terugkijken", detail: "Elke eerdere bordstaat wordt puur uit de zet-geschiedenis gereconstrueerd, niet apart opgeslagen.", mechanic: "reconstructBoard(), state.history" },
   { rule: "Computerspeler", detail: "4 niveaus: Makkelijk (willekeurig), Gemiddeld (1-ply heuristiek), Moeilijk/Expert (minimax + alfa-bèta, 2 resp. 3 zetten vooruit).", mechanic: "lib/collisionAI.js" },
   { rule: "Rating", detail: "Elo-systeem (start 1200) na elke afgeronde partij tussen twee échte spelers; K-factor 40/20/10 op basis van ervaring/rating.", mechanic: "apply_game_rating() (SQL)" },
