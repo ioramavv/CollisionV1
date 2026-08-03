@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye, MessageCircle, Send,
 } from "lucide-react";
 import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
-import { chooseComputerTurn } from "@/lib/collisionAI";
+import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { Avatar } from "@/lib/ui";
 
 // Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
@@ -233,7 +233,7 @@ export default function GamePage() {
       const startState = stateRef.current;
       if (cancelled || !startState) { computerTurnRef.current = false; return; }
 
-      const action = chooseComputerTurn(startState, "B");
+      const action = chooseComputerTurn(startState, "B", game.difficulty);
       if (!action) {
         await pushState({ ...startState, turn: "A" });
         computerTurnRef.current = false;
@@ -268,7 +268,7 @@ export default function GamePage() {
     })();
 
     return () => { cancelled = true; };
-  }, [game?.vs_computer, myRole, state?.turn, state?.winner, pushState]);
+  }, [game?.vs_computer, game?.difficulty, myRole, state?.turn, state?.winner, pushState]);
 
   function selectCell(r, c) {
     if (viewingHistory || !isMyTurn || placing) return;
@@ -549,6 +549,7 @@ export default function GamePage() {
           <div className="text-xs mono" style={{ color: "var(--muted)" }}>
             <div>Hulpstukken A: {state.toolsRemaining.A}</div>
             <div>Hulpstukken B: {state.toolsRemaining.B}</div>
+            {game.vs_computer && <div>Computer: {DIFFICULTY_LABELS[game.difficulty] || game.difficulty}</div>}
           </div>
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[myRole] <= 0}>
             <Hammer size={15} /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}

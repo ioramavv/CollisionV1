@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
+import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { Avatar, Badge } from "@/lib/ui";
 
 export default function LobbyPage() {
@@ -14,7 +15,7 @@ export default function LobbyPage() {
   const [myGames, setMyGames] = useState([]);
   const [archivedGames, setArchivedGames] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newGameStep, setNewGameStep] = useState(null); // null | "choose" | "invite"
+  const [newGameStep, setNewGameStep] = useState(null); // null | "choose" | "invite" | "computer"
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -74,7 +75,7 @@ export default function LobbyPage() {
 
     const { data: mine } = await supabase
       .from("games")
-      .select("id, status, player_a, player_b, invited_id, vs_computer, created_at, turn:state->>turn, a:player_a(username), b:player_b(username)")
+      .select("id, status, player_a, player_b, invited_id, vs_computer, difficulty, created_at, turn:state->>turn, a:player_a(username), b:player_b(username)")
       .or(`player_a.eq.${userId},player_b.eq.${userId}`)
       .neq("status", "finished")
       .order("created_at", { ascending: false });
@@ -110,10 +111,10 @@ export default function LobbyPage() {
     if (!error) router.push(`/game/${data.id}`);
   }
 
-  async function createComputerGame() {
+  async function createComputerGame(difficulty) {
     const { data, error } = await supabase
       .from("games")
-      .insert({ player_a: user.id, status: "active", vs_computer: true, state: freshState() })
+      .insert({ player_a: user.id, status: "active", vs_computer: true, difficulty, state: freshState() })
       .select()
       .single();
     if (!error) router.push(`/game/${data.id}`);
@@ -197,9 +198,20 @@ export default function LobbyPage() {
                 <button className="btn" onClick={() => setNewGameStep("invite")}>
                   <UserPlus size={15} /> Speler uitnodigen
                 </button>
-                <button className="btn" onClick={createComputerGame}>
+                <button className="btn" onClick={() => setNewGameStep("computer")}>
                   <Cpu size={15} /> Tegen de computer
                 </button>
+              </div>
+            )}
+
+            {newGameStep === "computer" && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs" style={{ color: "var(--muted)" }}>Kies een moeilijkheidsgraad:</p>
+                {DIFFICULTIES.map((difficulty) => (
+                  <button key={difficulty} className="btn" onClick={() => createComputerGame(difficulty)}>
+                    <Cpu size={15} /> {DIFFICULTY_LABELS[difficulty]}
+                  </button>
+                ))}
               </div>
             )}
 
@@ -293,7 +305,7 @@ export default function LobbyPage() {
                       {g.status === "waiting" ? "wacht op tegenstander" : "actief"}
                     </Badge>
                     {g.vs_computer ? (
-                      <Badge tone="neutral"><Cpu size={12} /> computer</Badge>
+                      <Badge tone="neutral"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"}</Badge>
                     ) : (
                       <Badge tone={g.invited_id ? "closed" : "open"}>
                         {g.invited_id ? "gesloten match" : "open match"}
