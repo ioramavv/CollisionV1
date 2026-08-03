@@ -18,6 +18,8 @@ export default function LobbyPage() {
   const [searching, setSearching] = useState(false);
   const [joiningId, setJoiningId] = useState(null);
   const [joinError, setJoinError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     let channel;
@@ -60,7 +62,7 @@ export default function LobbyPage() {
 
     const { data: mine } = await supabase
       .from("games")
-      .select("id, status, player_a, player_b, created_at, a:player_a(username), b:player_b(username)")
+      .select("id, status, player_a, player_b, invited_id, created_at, a:player_a(username), b:player_b(username)")
       .or(`player_a.eq.${userId},player_b.eq.${userId}`)
       .neq("status", "finished")
       .order("created_at", { ascending: false });
@@ -136,6 +138,19 @@ export default function LobbyPage() {
     router.push(`/game/${gameId}`);
   }
 
+  async function deleteGame(gameId) {
+    if (!window.confirm("Deze partij verwijderen?")) return;
+    setDeleteError(null);
+    setDeletingId(gameId);
+    const { error } = await supabase.from("games").delete().eq("id", gameId);
+    setDeletingId(null);
+    if (error) {
+      setDeleteError("Verwijderen mislukt: " + error.message);
+      return;
+    }
+    await refreshGames(user.id);
+  }
+
   if (loading) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
 
   return (
@@ -195,6 +210,7 @@ export default function LobbyPage() {
       </div>
 
       {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
+      {deleteError && <p className="text-sm" style={{ color: "#e07a5f" }}>{deleteError}</p>}
 
       {invites.length > 0 && (
         <section className="panel">
@@ -225,12 +241,21 @@ export default function LobbyPage() {
             {myGames.map((g) => {
               const opponentName = g.player_a === user.id ? g.b?.username : g.a?.username;
               const statusLabel = g.status === "waiting" ? "wacht op tegenstander" : "actief";
+              const typeLabel = g.invited_id ? "gesloten match" : "open match";
+              const canDelete = g.status === "waiting" && g.player_a === user.id;
               return (
                 <li key={g.id} className="flex items-center justify-between text-sm">
                   <span className="mono" style={{ color: "var(--muted)" }}>
-                    {opponentName ? `Partij met ${opponentName}` : "Partij"} · {statusLabel}
+                    {opponentName ? `Partij met ${opponentName}` : "Partij"} · {statusLabel} · {typeLabel}
                   </span>
-                  <a className="btn" href={`/game/${g.id}`}>Openen</a>
+                  <div className="flex items-center gap-2">
+                    <a className="btn" href={`/game/${g.id}`}>Openen</a>
+                    {canDelete && (
+                      <button className="btn" onClick={() => deleteGame(g.id)} disabled={deletingId === g.id}>
+                        {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+                      </button>
+                    )}
+                  </div>
                 </li>
               );
             })}
