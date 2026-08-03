@@ -5,7 +5,7 @@ import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpe
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
-import { Avatar, Badge } from "@/lib/ui";
+import { Avatar, Badge, Rating } from "@/lib/ui";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -24,6 +24,7 @@ export default function LobbyPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [myRating, setMyRating] = useState(null);
 
   useEffect(() => {
     let channel;
@@ -56,9 +57,12 @@ export default function LobbyPage() {
   }, [openMenuId]);
 
   async function refreshGames(userId) {
+    const { data: profile } = await supabase.from("profiles").select("rating").eq("id", userId).single();
+    setMyRating(profile?.rating ?? null);
+
     const { data: waiting } = await supabase
       .from("games")
-      .select("id, player_a, status, created_at, profiles:player_a(username)")
+      .select("id, player_a, status, created_at, profiles:player_a(username, rating)")
       .eq("status", "waiting")
       .is("invited_id", null)
       .neq("player_a", userId)
@@ -67,7 +71,7 @@ export default function LobbyPage() {
 
     const { data: invited } = await supabase
       .from("games")
-      .select("id, player_a, status, created_at, profiles:player_a(username)")
+      .select("id, player_a, status, created_at, profiles:player_a(username, rating)")
       .eq("status", "waiting")
       .eq("invited_id", userId)
       .order("created_at", { ascending: false });
@@ -75,7 +79,7 @@ export default function LobbyPage() {
 
     const { data: mine } = await supabase
       .from("games")
-      .select("id, status, player_a, player_b, invited_id, vs_computer, difficulty, created_at, turn:state->>turn, a:player_a(username), b:player_b(username)")
+      .select("id, status, player_a, player_b, invited_id, vs_computer, difficulty, created_at, turn:state->>turn, a:player_a(username, rating), b:player_b(username, rating)")
       .or(`player_a.eq.${userId},player_b.eq.${userId}`)
       .neq("status", "finished")
       .order("created_at", { ascending: false });
@@ -95,7 +99,7 @@ export default function LobbyPage() {
     const gameIds = entries.map((e) => e.game_id);
     const { data: games } = await supabase
       .from("games")
-      .select("id, player_a, player_b, vs_computer, state, a:player_a(username), b:player_b(username)")
+      .select("id, player_a, player_b, vs_computer, state, a:player_a(username, rating), b:player_b(username, rating)")
       .in("id", gameIds);
     const byId = Object.fromEntries((games || []).map((g) => [g.id, g]));
 
@@ -257,7 +261,14 @@ export default function LobbyPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold uppercase tracking-widest">Lobby</h1>
+        <h1 className="text-xl font-extrabold uppercase tracking-widest flex items-center gap-2">
+          Lobby
+          {myRating != null && (
+            <span className="text-xs mono" style={{ color: "var(--muted)", fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>
+              jouw rating: {myRating}
+            </span>
+          )}
+        </h1>
         <button className="btn btn-solid" onClick={() => setNewGameStep("choose")}>
           <Plus size={16} /> Nieuwe partij
         </button>
@@ -276,7 +287,7 @@ export default function LobbyPage() {
               <li key={g.id} className="flex items-center justify-between text-sm">
                 <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <Avatar username={g.profiles?.username} />
-                  {g.profiles?.username || "onbekend"} nodigt je uit
+                  {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> nodigt je uit
                 </span>
                 <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
                   <Check size={15} /> {joiningId === g.id ? "Bezig..." : "Accepteren"}
@@ -295,6 +306,7 @@ export default function LobbyPage() {
           <ul className="flex flex-col gap-2">
             {myGames.map((g) => {
               const opponentName = g.vs_computer ? "Computer" : (g.player_a === user.id ? g.b?.username : g.a?.username);
+              const opponentRating = g.vs_computer ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
               const canDelete = g.status === "waiting" && g.player_a === user.id;
               const myRoleInGame = g.player_a === user.id ? "A" : "B";
               const isMyTurn = g.status === "active" && g.turn === myRoleInGame;
@@ -307,7 +319,7 @@ export default function LobbyPage() {
                 >
                   <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
                     <Avatar username={opponentName} />
-                    {opponentName ? `Partij met ${opponentName}` : "Partij"}
+                    {opponentName ? `Partij met ${opponentName}` : "Partij"} <Rating value={opponentRating} />
                     <Badge tone={g.status === "waiting" ? "waiting" : "active"}>
                       {g.status === "waiting" ? "wacht op tegenstander" : "actief"}
                     </Badge>
@@ -356,13 +368,14 @@ export default function LobbyPage() {
             {archivedGames.map((e) => {
               const g = e.game;
               const opponentName = g.vs_computer ? "Computer" : (g.player_a === user.id ? g.b?.username : g.a?.username);
+              const opponentRating = g.vs_computer ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
               const myRole = g.player_a === user.id ? "A" : "B";
               const won = g.state?.winner === myRole;
               return (
                 <li key={e.id} className="flex items-center justify-between text-sm">
                   <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                     <Avatar username={opponentName} />
-                    Partij met {opponentName || "onbekend"}
+                    Partij met {opponentName || "onbekend"} <Rating value={opponentRating} />
                     <Badge tone={won ? "active" : "closed"}>
                       {won ? <Trophy size={12} /> : <Skull size={12} />} {won ? "gewonnen" : "verloren"}
                     </Badge>
@@ -389,7 +402,7 @@ export default function LobbyPage() {
             <li key={g.id} className="flex items-center justify-between text-sm">
               <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                 <Avatar username={g.profiles?.username} />
-                {g.profiles?.username || "onbekend"} wacht op een tegenstander
+                {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> wacht op een tegenstander
               </span>
               <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
                 <Play size={15} /> {joiningId === g.id ? "Bezig..." : "Meespelen"}

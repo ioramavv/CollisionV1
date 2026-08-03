@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, UserPlus, Check, X, Ban, UserMinus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { Avatar } from "@/lib/ui";
+import { Avatar, Rating } from "@/lib/ui";
 
 export default function FriendsPage() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function FriendsPage() {
   async function refreshFriends(userId) {
     const { data } = await supabase
       .from("friendships")
-      .select("id, requester_id, addressee_id, status, requester:requester_id(username), addressee:addressee_id(username)")
+      .select("id, requester_id, addressee_id, status, requester:requester_id(username, rating), addressee:addressee_id(username, rating)")
       .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`)
       .order("created_at", { ascending: false });
     const rows = data || [];
@@ -52,6 +52,10 @@ export default function FriendsPage() {
 
   function otherUsername(row, userId) {
     return row.requester_id === userId ? row.addressee?.username : row.requester?.username;
+  }
+
+  function otherRating(row, userId) {
+    return row.requester_id === userId ? row.addressee?.rating : row.requester?.rating;
   }
 
   async function searchUsers(e) {
@@ -146,7 +150,7 @@ export default function FriendsPage() {
               <li key={r.id} className="flex items-center justify-between text-sm">
                 <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <Avatar username={otherUsername(r, user.id)} />
-                  {otherUsername(r, user.id) || "onbekend"} wil vrienden worden
+                  {otherUsername(r, user.id) || "onbekend"} <Rating value={otherRating(r, user.id)} /> wil vrienden worden
                 </span>
                 <div className="flex items-center gap-2">
                   <button className="btn btn-success" onClick={() => acceptRequest(r.id)}><Check size={15} /> Accepteren</button>
@@ -168,7 +172,7 @@ export default function FriendsPage() {
               <li key={r.id} className="flex items-center justify-between text-sm">
                 <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <Avatar username={otherUsername(r, user.id)} />
-                  Verzoek naar {otherUsername(r, user.id) || "onbekend"}
+                  Verzoek naar {otherUsername(r, user.id) || "onbekend"} <Rating value={otherRating(r, user.id)} />
                 </span>
                 <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><Ban size={15} /> Annuleren</button>
               </li>
@@ -190,7 +194,7 @@ export default function FriendsPage() {
           {friends.map((r) => (
             <li key={r.id} className="flex items-center justify-between text-sm">
               <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
-                <Avatar username={otherUsername(r, user.id)} /> {otherUsername(r, user.id) || "onbekend"}
+                <Avatar username={otherUsername(r, user.id)} /> {otherUsername(r, user.id) || "onbekend"} <Rating value={otherRating(r, user.id)} />
               </span>
               <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><UserMinus size={15} /> Verwijderen</button>
             </li>

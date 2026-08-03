@@ -32,10 +32,17 @@ $$ language sql stable;
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
+  -- Elo-rating, net als bij chess.com. Begint op 1200 en wordt alleen
+  -- bijgewerkt na afgeronde partijen tussen twee echte spelers (dus niet
+  -- tegen de computer) — zie apply_game_rating() hieronder.
+  rating integer not null default 1200,
+  rating_games integer not null default 0,
   created_at timestamptz default now()
 );
 
 alter table profiles enable row level security;
+alter table profiles add column if not exists rating integer not null default 1200;
+alter table profiles add column if not exists rating_games integer not null default 0;
 
 select _drop_all_policies('profiles', 'SELECT');
 create policy "Profielen zijn zichtbaar voor iedereen"
@@ -86,6 +93,9 @@ create table if not exists games (
   -- vs_computer waar is. Zie lib/collisionAI.js voor de betekenis.
   difficulty text not null default 'medium' check (difficulty in ('easy', 'medium', 'hard', 'expert')),
   status text not null default 'waiting', -- waiting | active | finished
+  -- Wordt precies één keer op waar gezet zodra apply_game_rating() de
+  -- Elo-uitslag van deze partij heeft verwerkt, zodat dat nooit dubbel kan.
+  rating_applied boolean not null default false,
   state jsonb not null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
@@ -97,6 +107,7 @@ alter table games add column if not exists vs_computer boolean not null default 
 alter table games add column if not exists difficulty text not null default 'medium';
 alter table games drop constraint if exists games_difficulty_check;
 alter table games add constraint games_difficulty_check check (difficulty in ('easy', 'medium', 'hard', 'expert'));
+alter table games add column if not exists rating_applied boolean not null default false;
 
 select _drop_all_policies('games', 'SELECT');
 create policy "Zichtbaarheid van partijen"
@@ -141,6 +152,67 @@ drop trigger if exists games_set_updated_at on games;
 create trigger games_set_updated_at
   before update on games
   for each row execute procedure set_updated_at();
+
+-- Verwerkt de Elo-rating van een afgeronde partij tussen twee echte spelers.
+-- Wordt door de client aangeroepen (via supabase.rpc) zodra een partij
+-- eindigt. security definer omdat de aanroepende speler alleen zijn eigen
+-- profiel mag updaten (zie de UPDATE-policy op profiles) — deze functie mag
+-- namens beide spelers de rating bijwerken, maar alleen voor de exacte,
+-- deterministische Elo-uitkomst van een reeds afgeronde partij, en enkel op
+-- initiatief van één van de twee spelers zelf. `for update` + de
+-- rating_applied-vlag zorgen dat dit nooit dubbel toegepast wordt, ook niet
+-- als beide spelers de aanroep gelijktijdig doen.
+create or replace function apply_game_rating(p_game_id uuid)
+returns void as $$
+declare
+  g games%rowtype;
+  v_winner text;
+  rating_a integer;
+  rating_b integer;
+  games_a integer;
+  games_b integer;
+  k_a numeric;
+  k_b numeric;
+  expected_a numeric;
+  score_a numeric;
+  new_rating_a integer;
+  new_rating_b integer;
+begin
+  select * into g from games where id = p_game_id for update;
+  if not found then return; end if;
+
+  if g.vs_computer or g.status <> 'finished' or g.rating_applied or g.player_b is null then
+    return;
+  end if;
+
+  if auth.uid() is distinct from g.player_a and auth.uid() is distinct from g.player_b then
+    return;
+  end if;
+
+  v_winner := g.state->>'winner';
+  if v_winner is null then return; end if;
+
+  select rating, rating_games into rating_a, games_a from profiles where id = g.player_a;
+  select rating, rating_games into rating_b, games_b from profiles where id = g.player_b;
+
+  -- Zelfde soort K-factor-trapjes als chess.com/FIDE: de rating van nieuwe
+  -- spelers beweegt sneller, die van gevestigde topspelers juist trager.
+  k_a := case when games_a < 30 then 40 when rating_a >= 2400 then 10 else 20 end;
+  k_b := case when games_b < 30 then 40 when rating_b >= 2400 then 10 else 20 end;
+
+  expected_a := 1.0 / (1 + power(10.0, (rating_b - rating_a)::numeric / 400.0));
+  score_a := case when v_winner = 'A' then 1 else 0 end;
+
+  new_rating_a := round(rating_a + k_a * (score_a - expected_a));
+  new_rating_b := round(rating_b + k_b * ((1 - score_a) - (1 - expected_a)));
+
+  update games set rating_applied = true where id = p_game_id;
+  update profiles set rating = new_rating_a, rating_games = rating_games + 1 where id = g.player_a;
+  update profiles set rating = new_rating_b, rating_games = rating_games + 1 where id = g.player_b;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+grant execute on function apply_game_rating(uuid) to authenticated;
 
 -- 3) Archief. Slaat NIET een kopie van het bord op — alleen een verwijzing
 --    naar de bestaande games-rij, zodat dit vrijwel geen ruimte kost.
