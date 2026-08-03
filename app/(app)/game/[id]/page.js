@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
-import { Avatar } from "@/lib/ui";
+import { Avatar, Rating } from "@/lib/ui";
 
 // Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
 // van toepassing), zodat we dat kunnen laten "schuiven" i.p.v. laten
@@ -84,6 +84,8 @@ export default function GamePage() {
   const [archiveError, setArchiveError] = useState(null);
   const [slideAnim, setSlideAnim] = useState(null);
   const [playerNames, setPlayerNames] = useState({ A: null, B: null });
+  const [playerRatings, setPlayerRatings] = useState({ A: null, B: null });
+  const [ratingDelta, setRatingDelta] = useState(null); // { A, B } — verschil t.o.v. rating bij het laden van deze pagina
   const [historyIndex, setHistoryIndex] = useState(null); // null = live, anders index in state.history
   const [messages, setMessages] = useState([]);
   const [chatText, setChatText] = useState("");
@@ -93,9 +95,38 @@ export default function GamePage() {
   const chatEndRef = useRef(null);
   const computerTurnRef = useRef(false);
   const stateRef = useRef(null);
+  const initialRatingsRef = useRef({ A: null, B: null });
+  const ratingAppliedRef = useRef(false);
 
   useEffect(() => {
     let channel;
+
+    // Roept de rating-berekening aan zodra een partij tussen twee echte
+    // spelers is afgelopen (nooit voor vs_computer). apply_game_rating is
+    // idempotent (bewaakt via games.rating_applied), dus dit mag gerust
+    // vaker aangeroepen worden dan strikt nodig. ratingAppliedRef voorkomt
+    // alleen dubbele netwerk-calls vanuit deze ene client.
+    async function maybeApplyRating(gameRow) {
+      if (!gameRow || gameRow.vs_computer || gameRow.status !== "finished" || !gameRow.state?.winner) return;
+      if (ratingAppliedRef.current) return;
+      ratingAppliedRef.current = true;
+
+      await supabase.rpc("apply_game_rating", { p_game_id: id });
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, rating")
+        .in("id", [gameRow.player_a, gameRow.player_b]);
+      if (!profiles) return;
+      const byId = Object.fromEntries(profiles.map((p) => [p.id, p.rating]));
+      const newA = byId[gameRow.player_a];
+      const newB = byId[gameRow.player_b];
+      const before = initialRatingsRef.current;
+      setPlayerRatings({ A: newA ?? before.A, B: newB ?? before.B });
+      setRatingDelta({
+        A: before.A != null && newA != null ? newA - before.A : null,
+        B: before.B != null && newB != null ? newB - before.B : null,
+      });
+    }
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -104,15 +135,20 @@ export default function GamePage() {
 
       const { data, error } = await supabase
         .from("games")
-        .select("*, a:player_a(username), b:player_b(username)")
+        .select("*, a:player_a(username, rating), b:player_b(username, rating)")
         .eq("id", id)
         .single();
       if (error || !data) { setError("Partij niet gevonden."); setLoading(false); return; }
       setGame(data);
       setPlayerNames({ A: data.a?.username || null, B: data.vs_computer ? "Computer" : (data.b?.username || null) });
+      const initialRatings = { A: data.a?.rating ?? null, B: data.vs_computer ? null : (data.b?.rating ?? null) };
+      setPlayerRatings(initialRatings);
+      initialRatingsRef.current = initialRatings;
       const role = data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null;
       setMyRole(role);
       setLoading(false);
+
+      maybeApplyRating(data);
 
       if (role) {
         const { data: msgs } = await supabase
@@ -130,7 +166,10 @@ export default function GamePage() {
           { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
           (payload) => {
             setGame((prev) => {
-              if (!prev?.state?.winner && payload.new?.state?.winner) setShowOverlay(true);
+              if (!prev?.state?.winner && payload.new?.state?.winner) {
+                setShowOverlay(true);
+                maybeApplyRating(payload.new);
+              }
               return payload.new;
             });
             setSelected(null);
@@ -401,6 +440,16 @@ export default function GamePage() {
                   ? "Je hebt gewonnen!"
                   : "Je hebt verloren"}
             </h2>
+            {!game.vs_computer && myRole && playerRatings[myRole] != null && (
+              <p className="text-sm mono" style={{ color: "var(--muted)" }}>
+                Nieuwe rating: {playerRatings[myRole]}
+                {ratingDelta?.[myRole] != null && (
+                  <span style={{ color: ratingDelta[myRole] >= 0 ? "#9db98a" : "#e07a5f" }}>
+                    {" "}({ratingDelta[myRole] >= 0 ? "+" : ""}{ratingDelta[myRole]})
+                  </span>
+                )}
+              </p>
+            )}
             {archiveError && <p className="text-xs" style={{ color: "#e07a5f" }}>{archiveError}</p>}
             {myRole && (
               <button className="btn" onClick={archiveMatch} disabled={archiving || archived}>
@@ -552,6 +601,15 @@ export default function GamePage() {
         </div>
 
         <aside className="panel w-64 flex flex-col gap-3">
+          <div className="text-xs flex items-center justify-between flex-wrap gap-1" style={{ color: "var(--muted)" }}>
+            <span className="flex items-center gap-1">
+              <Avatar username={playerNames.A} size={18} /> {nameFor("A")} <Rating value={playerRatings.A} />
+            </span>
+            <span>vs</span>
+            <span className="flex items-center gap-1">
+              <Avatar username={playerNames.B} size={18} /> {nameFor("B")} <Rating value={playerRatings.B} />
+            </span>
+          </div>
           <p className="text-sm flex items-center gap-2">
             <Avatar username={nameFor(state.winner || state.turn)} size={22} />
             {state.winner

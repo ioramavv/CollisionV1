@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, MessageSquare, Swords, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { Avatar, Badge } from "@/lib/ui";
+import { Avatar, Badge, Rating } from "@/lib/ui";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export default function AdminPage() {
     async function refreshAll() {
       const { data: userList, error: usersError } = await supabase
         .from("profiles")
-        .select("id, username, created_at")
+        .select("id, username, rating, created_at")
         .order("created_at", { ascending: false });
       if (usersError) setError("Gebruikers laden mislukt: " + usersError.message);
       setUsers(userList || []);
@@ -36,7 +36,7 @@ export default function AdminPage() {
 
       const { data: games, error: gamesError } = await supabase
         .from("games")
-        .select("id, status, created_at, a:player_a(username), b:player_b(username)")
+        .select("id, status, created_at, a:player_a(username, rating), b:player_b(username, rating)")
         .eq("status", "active")
         .order("created_at", { ascending: false });
       if (gamesError) setError("Partijen laden mislukt: " + gamesError.message);
@@ -100,7 +100,7 @@ export default function AdminPage() {
           {users.map((u) => (
             <li key={u.id} className="flex items-center justify-between text-sm">
               <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
-                <Avatar username={u.username} /> {u.username}
+                <Avatar username={u.username} /> {u.username} <Rating value={u.rating} />
               </span>
               <Badge tone={onlineIds.has(u.id) ? "online" : "offline"}>
                 {onlineIds.has(u.id) ? "online" : "offline"}
@@ -141,9 +141,9 @@ export default function AdminPage() {
           {activeGames.map((g) => (
             <li key={g.id} className="flex items-center justify-between text-sm">
               <span className="mono flex items-center gap-1" style={{ color: "var(--muted)" }}>
-                <Avatar username={g.a?.username} size={22} /> {g.a?.username || "onbekend"}
+                <Avatar username={g.a?.username} size={22} /> {g.a?.username || "onbekend"} <Rating value={g.a?.rating} />
                 <span style={{ margin: "0 4px" }}>vs</span>
-                <Avatar username={g.b?.username} size={22} /> {g.b?.username || "onbekend"}
+                <Avatar username={g.b?.username} size={22} /> {g.b?.username || "onbekend"} <Rating value={g.b?.rating} />
               </span>
               <div className="flex items-center gap-2">
                 <a className="btn" href={`/game/${g.id}`}><Eye size={14} /> Bekijk</a>
