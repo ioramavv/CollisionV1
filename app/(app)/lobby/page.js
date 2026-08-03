@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
+import { Avatar, Badge } from "@/lib/ui";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -175,13 +177,17 @@ export default function LobbyPage() {
           <div className="panel" style={{ maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="flex items-center justify-between">
               <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--gold)" }}>Nieuwe partij</h2>
-              <button className="btn" onClick={closeNewGameModal}>×</button>
+              <button className="btn btn-icon" onClick={closeNewGameModal}><X size={16} /></button>
             </div>
 
             {newGameStep === "choose" && (
               <div className="flex flex-col gap-2">
-                <button className="btn btn-solid" onClick={() => createGame()}>Open partij starten</button>
-                <button className="btn" onClick={() => setNewGameStep("invite")}>Speler uitnodigen</button>
+                <button className="btn btn-solid" onClick={() => createGame()}>
+                  <Play size={15} /> Open partij starten
+                </button>
+                <button className="btn" onClick={() => setNewGameStep("invite")}>
+                  <UserPlus size={15} /> Speler uitnodigen
+                </button>
               </div>
             )}
 
@@ -196,14 +202,19 @@ export default function LobbyPage() {
                     className="input flex-1"
                     autoFocus
                   />
-                  <button className="btn" type="submit" disabled={searching}>Zoeken</button>
+                  <button className="btn btn-icon" type="submit" disabled={searching}><Search size={15} /></button>
                 </form>
                 {searchResults.length > 0 && (
                   <ul className="flex flex-col gap-2">
                     {searchResults.map((p) => (
                       <li key={p.id} className="flex items-center justify-between text-sm">
-                        <span className="mono" style={{ color: "var(--muted)" }}>{p.username}</span>
-                        <button className="btn" onClick={() => createGame(p.id)}>Uitnodigen</button>
+                        <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                          <Avatar username={p.username} />
+                          {p.username}
+                        </span>
+                        <button className="btn" onClick={() => createGame(p.id)}>
+                          <UserPlus size={15} /> Uitnodigen
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -216,7 +227,9 @@ export default function LobbyPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-extrabold uppercase tracking-widest">Lobby</h1>
-        <button className="btn btn-solid" onClick={() => setNewGameStep("choose")}>+ Nieuwe partij</button>
+        <button className="btn btn-solid" onClick={() => setNewGameStep("choose")}>
+          <Plus size={16} /> Nieuwe partij
+        </button>
       </div>
 
       {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
@@ -230,11 +243,12 @@ export default function LobbyPage() {
           <ul className="flex flex-col gap-2">
             {invites.map((g) => (
               <li key={g.id} className="flex items-center justify-between text-sm">
-                <span className="mono" style={{ color: "var(--muted)" }}>
+                <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                  <Avatar username={g.profiles?.username} />
                   {g.profiles?.username || "onbekend"} nodigt je uit
                 </span>
-                <button className="btn" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
-                  {joiningId === g.id ? "Bezig..." : "Accepteren"}
+                <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
+                  <Check size={15} /> {joiningId === g.id ? "Bezig..." : "Accepteren"}
                 </button>
               </li>
             ))}
@@ -250,21 +264,26 @@ export default function LobbyPage() {
           <ul className="flex flex-col gap-2">
             {myGames.map((g) => {
               const opponentName = g.player_a === user.id ? g.b?.username : g.a?.username;
-              const statusLabel = g.status === "waiting" ? "wacht op tegenstander" : "actief";
-              const typeLabel = g.invited_id ? "gesloten match" : "open match";
               const canDelete = g.status === "waiting" && g.player_a === user.id;
               const myRoleInGame = g.player_a === user.id ? "A" : "B";
               const isMyTurn = g.status === "active" && g.turn === myRoleInGame;
               return (
                 <li key={g.id} className="flex items-center justify-between text-sm">
-                  <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
-                    {opponentName ? `Partij met ${opponentName}` : "Partij"} · {statusLabel} · {typeLabel}
-                    {isMyTurn && (
-                      <span style={{ color: "var(--gold)", fontWeight: 600 }}>● Jouw beurt!</span>
-                    )}
+                  <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+                    <Avatar username={opponentName} />
+                    {opponentName ? `Partij met ${opponentName}` : "Partij"}
+                    <Badge tone={g.status === "waiting" ? "waiting" : "active"}>
+                      {g.status === "waiting" ? "wacht op tegenstander" : "actief"}
+                    </Badge>
+                    <Badge tone={g.invited_id ? "closed" : "open"}>
+                      {g.invited_id ? "gesloten match" : "open match"}
+                    </Badge>
+                    {isMyTurn && <Badge tone="turn">Jouw beurt!</Badge>}
                   </span>
                   <div data-menu-id={g.id} style={{ position: "relative" }}>
-                    <button className="btn" onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}>⋯</button>
+                    <button className="btn btn-icon" onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}>
+                      <MoreVertical size={16} />
+                    </button>
                     {openMenuId === g.id && (
                       <div
                         className="panel"
@@ -273,10 +292,10 @@ export default function LobbyPage() {
                           padding: 8, display: "flex", flexDirection: "column", gap: 4, minWidth: 150,
                         }}
                       >
-                        <a className="btn" href={`/game/${g.id}`}>Openen</a>
+                        <a className="btn" href={`/game/${g.id}`}><Play size={14} /> Openen</a>
                         {canDelete && (
-                          <button className="btn" onClick={() => { setOpenMenuId(null); deleteGame(g.id); }} disabled={deletingId === g.id}>
-                            {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+                          <button className="btn btn-danger" onClick={() => { setOpenMenuId(null); deleteGame(g.id); }} disabled={deletingId === g.id}>
+                            <Trash2 size={14} /> {deletingId === g.id ? "Bezig..." : "Verwijderen"}
                           </button>
                         )}
                       </div>
@@ -299,13 +318,17 @@ export default function LobbyPage() {
               const g = e.game;
               const opponentName = g.player_a === user.id ? g.b?.username : g.a?.username;
               const myRole = g.player_a === user.id ? "A" : "B";
-              const result = g.state?.winner === myRole ? "gewonnen" : "verloren";
+              const won = g.state?.winner === myRole;
               return (
                 <li key={e.id} className="flex items-center justify-between text-sm">
-                  <span className="mono" style={{ color: "var(--muted)" }}>
-                    Partij met {opponentName || "onbekend"} · {result}
+                  <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                    <Avatar username={opponentName} />
+                    Partij met {opponentName || "onbekend"}
+                    <Badge tone={won ? "active" : "closed"}>
+                      {won ? <Trophy size={12} /> : <Skull size={12} />} {won ? "gewonnen" : "verloren"}
+                    </Badge>
                   </span>
-                  <a className="btn" href={`/game/${g.id}`}>Bekijk</a>
+                  <a className="btn" href={`/game/${g.id}`}><FolderOpen size={14} /> Bekijk</a>
                 </li>
               );
             })}
@@ -325,11 +348,12 @@ export default function LobbyPage() {
         <ul className="flex flex-col gap-2">
           {openGames.map((g) => (
             <li key={g.id} className="flex items-center justify-between text-sm">
-              <span className="mono" style={{ color: "var(--muted)" }}>
+              <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                <Avatar username={g.profiles?.username} />
                 {g.profiles?.username || "onbekend"} wacht op een tegenstander
               </span>
-              <button className="btn" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
-                {joiningId === g.id ? "Bezig..." : "Meespelen"}
+              <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
+                <Play size={15} /> {joiningId === g.id ? "Bezig..." : "Meespelen"}
               </button>
             </li>
           ))}

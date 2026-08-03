@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { Avatar } from "@/lib/ui";
 
 const LINKS = [
-  { href: "/lobby", label: "Lobby" },
-  { href: "/friends", label: "Vrienden" },
+  { href: "/lobby", label: "Lobby", icon: Swords },
+  { href: "/friends", label: "Vrienden", icon: Users },
 ];
 
 export default function AppLayout({ children }) {
@@ -88,12 +90,14 @@ export default function AppLayout({ children }) {
                 href={link.href}
                 className={`sidebar-link${pathname.startsWith(link.href) ? " active" : ""}`}
               >
+                <link.icon size={17} strokeWidth={2} />
                 {link.label}
               </Link>
             </li>
           ))}
           <li>
             <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={openFeedback}>
+              <MessageSquarePlus size={17} strokeWidth={2} />
               Feedback
             </button>
           </li>
@@ -103,14 +107,23 @@ export default function AppLayout({ children }) {
                 href="/admin"
                 className={`sidebar-link${pathname.startsWith("/admin") ? " active" : ""}`}
               >
+                <ShieldCheck size={17} strokeWidth={2} />
                 Admin
               </Link>
             </li>
           )}
         </ul>
         <div className="sidebar-footer">
-          {profile && <span className="mono sidebar-username">{profile.username}</span>}
-          <button className="btn" onClick={signOut}>Uitloggen</button>
+          {profile && (
+            <span className="mono sidebar-username" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Avatar username={profile.username} size={22} />
+              {profile.username}
+            </span>
+          )}
+          <button className="btn" onClick={signOut}>
+            <LogOut size={15} strokeWidth={2} />
+            Uitloggen
+          </button>
         </div>
       </nav>
       <main className="app-content">{children}</main>
@@ -125,7 +138,7 @@ export default function AppLayout({ children }) {
           <div className="panel" style={{ maxWidth: 400, width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="flex items-center justify-between">
               <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--gold)" }}>Feedback</h2>
-              <button className="btn" onClick={() => setFeedbackOpen(false)}>×</button>
+              <button className="btn btn-icon" onClick={() => setFeedbackOpen(false)}><X size={16} /></button>
             </div>
             {feedbackSent ? (
               <p className="text-sm">Bedankt voor je feedback!</p>
