@@ -12,35 +12,10 @@ export default function AdminPage() {
   const [feedback, setFeedback] = useState([]);
   const [activeGames, setActiveGames] = useState([]);
   const [error, setError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     let channel;
-
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-
-      const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).single();
-      if (profile?.username !== "JorADMIN") {
-        router.push("/lobby");
-        return;
-      }
-      setAllowed(true);
-
-      await refreshAll();
-      setLoading(false);
-
-      channel = supabase.channel("online-users", { config: { presence: { key: user.id } } });
-      channel
-        .on("presence", { event: "sync" }, () => {
-          setOnlineIds(new Set(Object.keys(channel.presenceState())));
-        })
-        .subscribe(async (status) => {
-          if (status === "SUBSCRIBED") {
-            await channel.track({ username: profile.username, online_at: new Date().toISOString() });
-          }
-        });
-    }
 
     async function refreshAll() {
       const { data: userList, error: usersError } = await supabase
@@ -66,9 +41,46 @@ export default function AdminPage() {
       setActiveGames(games || []);
     }
 
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+
+      const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).single();
+      if (profile?.username !== "JorADMIN") {
+        router.push("/lobby");
+        return;
+      }
+      setAllowed(true);
+
+      await refreshAll();
+      setLoading(false);
+
+      channel = supabase.channel("online-users", { config: { presence: { key: user.id } } });
+      channel
+        .on("presence", { event: "sync" }, () => {
+          setOnlineIds(new Set(Object.keys(channel.presenceState())));
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "feedback" }, refreshAll)
+        .on("postgres_changes", { event: "*", schema: "public", table: "games" }, refreshAll)
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            await channel.track({ username: profile.username, online_at: new Date().toISOString() });
+          }
+        });
+    }
+
     init();
     return () => { if (channel) supabase.removeChannel(channel); };
   }, [router]);
+
+  async function deleteGame(gameId) {
+    if (!window.confirm("Deze partij verwijderen?")) return;
+    setError(null);
+    setDeletingId(gameId);
+    const { error } = await supabase.from("games").delete().eq("id", gameId);
+    setDeletingId(null);
+    if (error) setError("Verwijderen mislukt: " + error.message);
+  }
 
   if (loading || !allowed) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
 
@@ -129,7 +141,12 @@ export default function AdminPage() {
               <span className="mono" style={{ color: "var(--muted)" }}>
                 {g.a?.username || "onbekend"} vs {g.b?.username || "onbekend"}
               </span>
-              <a className="btn" href={`/game/${g.id}`}>Bekijk</a>
+              <div className="flex items-center gap-2">
+                <a className="btn" href={`/game/${g.id}`}>Bekijk</a>
+                <button className="btn" onClick={() => deleteGame(g.id)} disabled={deletingId === g.id}>
+                  {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+                </button>
+              </div>
             </li>
           ))}
         </ul>
