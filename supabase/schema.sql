@@ -238,7 +238,43 @@ create policy "Alleen admin mag feedback lezen"
   on feedback for select
   using (is_admin());
 
--- 6) Realtime aanzetten voor de games-, friendships- en feedback-tabellen
+-- 6) Chat per partij. Alleen de twee spelers van die partij (en de admin,
+--    voor moderatie) mogen de berichten lezen; alleen de twee spelers
+--    mogen er zelf berichten in plaatsen.
+create table if not exists game_messages (
+  id uuid primary key default gen_random_uuid(),
+  game_id uuid references games(id) on delete cascade not null,
+  sender_id uuid references profiles(id) not null,
+  body text not null,
+  created_at timestamptz default now()
+);
+
+alter table game_messages enable row level security;
+
+select _drop_all_policies('game_messages', 'SELECT');
+create policy "Spelers en admin zien chat van hun eigen partij"
+  on game_messages for select
+  using (
+    exists (
+      select 1 from games g
+      where g.id = game_id and (g.player_a = auth.uid() or g.player_b = auth.uid())
+    )
+    or is_admin()
+  );
+
+select _drop_all_policies('game_messages', 'INSERT');
+create policy "Spelers mogen chatten in hun eigen partij"
+  on game_messages for insert
+  with check (
+    auth.uid() = sender_id
+    and exists (
+      select 1 from games g
+      where g.id = game_id and (g.player_a = auth.uid() or g.player_b = auth.uid())
+    )
+  );
+
+-- 7) Realtime aanzetten voor de games-, friendships-, feedback- en
+--    game_messages-tabellen
 create or replace function _ensure_realtime(p_table text)
 returns void as $$
 begin
@@ -254,3 +290,4 @@ $$ language plpgsql;
 select _ensure_realtime('games');
 select _ensure_realtime('friendships');
 select _ensure_realtime('feedback');
+select _ensure_realtime('game_messages');

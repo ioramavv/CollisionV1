@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
-  ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye,
+  ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye, MessageCircle, Send,
 } from "lucide-react";
 import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
 import { Avatar } from "@/lib/ui";
@@ -84,7 +84,12 @@ export default function GamePage() {
   const [slideAnim, setSlideAnim] = useState(null);
   const [playerNames, setPlayerNames] = useState({ A: null, B: null });
   const [historyIndex, setHistoryIndex] = useState(null); // null = live, anders index in state.history
+  const [messages, setMessages] = useState([]);
+  const [chatText, setChatText] = useState("");
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatError, setChatError] = useState(null);
   const prevBoardRef = useRef(null);
+  const chatEndRef = useRef(null);
 
   useEffect(() => {
     let channel;
@@ -102,8 +107,18 @@ export default function GamePage() {
       if (error || !data) { setError("Partij niet gevonden."); setLoading(false); return; }
       setGame(data);
       setPlayerNames({ A: data.a?.username || null, B: data.b?.username || null });
-      setMyRole(data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null);
+      const role = data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null;
+      setMyRole(role);
       setLoading(false);
+
+      if (role) {
+        const { data: msgs } = await supabase
+          .from("game_messages")
+          .select("id, sender_id, body, created_at, profiles:sender_id(username)")
+          .eq("game_id", id)
+          .order("created_at", { ascending: true });
+        setMessages(msgs || []);
+      }
 
       channel = supabase
         .channel(`game-${id}-${crypto.randomUUID()}`)
@@ -118,6 +133,18 @@ export default function GamePage() {
             setSelected(null);
             setMovedThisTurn(false);
             setPlacing(false);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "game_messages", filter: `game_id=eq.${id}` },
+          async (payload) => {
+            const { data: sender } = await supabase
+              .from("profiles")
+              .select("username")
+              .eq("id", payload.new.sender_id)
+              .single();
+            setMessages((prev) => [...prev, { ...payload.new, profiles: sender }]);
           }
         )
         .subscribe();
@@ -253,6 +280,22 @@ export default function GamePage() {
       log: [`Speler ${myRole} heeft opgegeven.`, ...state.log].slice(0, 40),
     };
     pushState(nextState, "finished");
+  }
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
+
+  async function sendMessage(e) {
+    e.preventDefault();
+    const body = chatText.trim();
+    if (!body || !myRole) return;
+    setSendingChat(true);
+    setChatError(null);
+    const { error } = await supabase.from("game_messages").insert({ game_id: id, sender_id: user.id, body });
+    setSendingChat(false);
+    if (error) { setChatError("Versturen mislukt: " + error.message); return; }
+    setChatText("");
   }
 
   async function archiveMatch() {
@@ -458,6 +501,43 @@ export default function GamePage() {
             {state.log.map((line, i) => <div key={i}>{line}</div>)}
           </div>
         </aside>
+
+        {myRole && (
+          <aside className="panel w-64 flex flex-col gap-3" style={{ height: 420 }}>
+            <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--gold)" }}>
+              <MessageCircle size={15} /> Chat
+            </h2>
+            <div className="flex flex-col gap-3 overflow-y-auto flex-1">
+              {messages.length === 0 && (
+                <p className="text-xs" style={{ color: "var(--muted)" }}>Nog geen berichten — zeg hallo!</p>
+              )}
+              {messages.map((m) => (
+                <div key={m.id} className="text-xs flex items-start gap-2">
+                  <Avatar username={m.profiles?.username} size={20} />
+                  <div>
+                    <div className="mono" style={{ color: "var(--muted)" }}>{m.profiles?.username || "onbekend"}</div>
+                    <div>{m.body}</div>
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            {chatError && <p className="text-xs" style={{ color: "#e07a5f" }}>{chatError}</p>}
+            <form onSubmit={sendMessage} className="flex items-center gap-2">
+              <input
+                type="text"
+                className="input flex-1"
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value)}
+                placeholder="Typ een bericht..."
+                maxLength={500}
+              />
+              <button className="btn btn-icon" type="submit" disabled={sendingChat || !chatText.trim()}>
+                <Send size={15} />
+              </button>
+            </form>
+          </aside>
+        )}
       </div>
     </main>
   );
