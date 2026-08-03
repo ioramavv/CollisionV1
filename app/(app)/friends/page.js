@@ -107,7 +107,7 @@ export default function FriendsPage() {
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
           Vriend toevoegen
         </h2>
         <form onSubmit={searchUsers} className="flex items-center gap-2">
@@ -138,7 +138,7 @@ export default function FriendsPage() {
 
       {incoming.length > 0 && (
         <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
             Openstaande verzoeken
           </h2>
           <ul className="flex flex-col gap-2">
@@ -160,7 +160,7 @@ export default function FriendsPage() {
 
       {outgoing.length > 0 && (
         <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
             Verzonden verzoeken
           </h2>
           <ul className="flex flex-col gap-2">
@@ -178,7 +178,7 @@ export default function FriendsPage() {
       )}
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
           Vrienden
         </h2>
         {friends.length === 0 && (

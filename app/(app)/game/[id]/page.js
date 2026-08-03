@@ -35,7 +35,7 @@ function Confetti() {
   // willekeurigheid hier levert een stabiele waarde op voor de levensduur
   // van dit component-exemplaar, i.p.v. instabiele waarden per render.
   const [pieces] = useState(() => {
-    const colors = ["var(--gold)", "var(--maple)", "var(--walnut)", "#e07a5f", "#f0ece2"];
+    const colors = ["var(--accent)", "var(--maple)", "var(--walnut)", "#e07a5f", "#f0ece2"];
     return Array.from({ length: 70 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
@@ -332,7 +332,7 @@ export default function GamePage() {
             }}
           >
             {myRole && myRole === state.winner && (
-              <Trophy size={40} style={{ margin: "0 auto", color: "var(--gold)" }} />
+              <Trophy size={40} style={{ margin: "0 auto", color: "var(--accent)" }} />
             )}
             <h2 className="text-lg font-extrabold uppercase tracking-widest">
               {!myRole
@@ -397,7 +397,7 @@ export default function GamePage() {
                     {center && (
                       <div style={{
                         position: "absolute", width: "60%", height: "60%",
-                        border: "2px solid var(--gold)", borderRadius: "50%", opacity: 0.55,
+                        border: "2px solid var(--accent)", borderRadius: "50%", opacity: 0.55,
                       }} />
                     )}
                     {cell && !isSlideTarget && (
@@ -407,7 +407,7 @@ export default function GamePage() {
                         borderRadius: cell.type === "pawn" ? "50%" : "3px",
                         transform: cell.type === "tool" ? "rotate(45deg)" : "none",
                         background: cell.owner === "A" ? "var(--walnut)" : "var(--maple)",
-                        boxShadow: isSel ? "0 0 0 2px var(--gold)" : "0 1px 3px rgba(0,0,0,0.35)",
+                        boxShadow: isSel ? "0 0 0 2px var(--accent)" : "0 1px 3px rgba(0,0,0,0.35)",
                       }} />
                     )}
                   </div>
@@ -459,7 +459,7 @@ export default function GamePage() {
           {history.length > 0 && (
             <div className="flex flex-col items-center gap-1">
               {viewingHistory && (
-                <p className="text-xs" style={{ color: "var(--gold)" }}>
+                <p className="text-xs" style={{ color: "var(--accent)" }}>
                   Je bekijkt een eerdere situatie — puur ter inzage.
                 </p>
               )}
@@ -504,7 +504,7 @@ export default function GamePage() {
 
         {myRole && (
           <aside className="panel w-64 flex flex-col gap-3" style={{ height: 420 }}>
-            <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--gold)" }}>
+            <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
               <MessageCircle size={15} /> Chat
             </h2>
             <div className="flex flex-col gap-3 overflow-y-auto flex-1">

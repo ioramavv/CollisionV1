@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { Avatar } from "@/lib/ui";
+import { Avatar, Logo } from "@/lib/ui";
 
 const LINKS = [
   { href: "/lobby", label: "Lobby", icon: Swords },
@@ -81,7 +81,7 @@ export default function AppLayout({ children }) {
     <div className="app-shell">
       <nav className="sidebar">
         <div className="sidebar-brand">
-          Colli<span style={{ color: "var(--gold)" }}>sion</span>
+          <Logo size={20} />
         </div>
         <ul className="sidebar-nav">
           {LINKS.map((link) => (
@@ -137,7 +137,7 @@ export default function AppLayout({ children }) {
         >
           <div className="panel" style={{ maxWidth: 400, width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--gold)" }}>Feedback</h2>
+              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>Feedback</h2>
               <button className="btn btn-icon" onClick={() => setFeedbackOpen(false)}><X size={16} /></button>
             </div>
             {feedbackSent ? (

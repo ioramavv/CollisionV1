@@ -93,7 +93,7 @@ export default function AdminPage() {
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
           Gebruikers — {users.length} totaal, {onlineIds.size} online
         </h2>
         <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
@@ -111,7 +111,7 @@ export default function AdminPage() {
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--gold)" }}>
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
           <MessageSquare size={15} /> Feedback
         </h2>
         {feedback.length === 0 && (
@@ -131,7 +131,7 @@ export default function AdminPage() {
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--gold)" }}>
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
           <Swords size={15} /> Actieve partijen — {activeGames.length}
         </h2>
         {activeGames.length === 0 && (
