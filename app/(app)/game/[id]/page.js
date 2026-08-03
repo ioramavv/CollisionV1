@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye, MessageCircle, Send,
 } from "lucide-react";
 import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
+import { chooseComputerTurn } from "@/lib/collisionAI";
 import { Avatar } from "@/lib/ui";
 
 // Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
@@ -90,6 +91,8 @@ export default function GamePage() {
   const [chatError, setChatError] = useState(null);
   const prevBoardRef = useRef(null);
   const chatEndRef = useRef(null);
+  const computerTurnRef = useRef(false);
+  const stateRef = useRef(null);
 
   useEffect(() => {
     let channel;
@@ -106,7 +109,7 @@ export default function GamePage() {
         .single();
       if (error || !data) { setError("Partij niet gevonden."); setLoading(false); return; }
       setGame(data);
-      setPlayerNames({ A: data.a?.username || null, B: data.b?.username || null });
+      setPlayerNames({ A: data.a?.username || null, B: data.vs_computer ? "Computer" : (data.b?.username || null) });
       const role = data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null;
       setMyRole(role);
       setLoading(false);
@@ -155,6 +158,7 @@ export default function GamePage() {
   }, [id, router]);
 
   const state = game?.state;
+  useEffect(() => { stateRef.current = state; }, [state]);
   const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
   const nameFor = (role) => playerNames[role] || `Speler ${role}`;
   const history = state?.history || [];
@@ -209,6 +213,62 @@ export default function GamePage() {
     const { error } = await supabase.from("games").update(payload).eq("id", id);
     if (error) setError(error.message);
   }, [id]);
+
+  // Speelt de beurt van de computerspeler (rol B) uit. Draait alleen in de
+  // browser van de eigenaar (rol A) — er is geen aparte databasegebruiker
+  // voor de computer, dus alleen die client mag zetten voor B berekenen.
+  // Let op: de dependency-array bevat bewust alleen primitieven, niet het
+  // hele `state`-object — anders zou elke tussenliggende zet binnen dezelfde
+  // computerbeurt (via de realtime-update) dit effect opnieuw laten
+  // opstarten en zichzelf meteen weer afbreken.
+  useEffect(() => {
+    if (!game?.vs_computer || myRole !== "A" || state?.winner) return;
+    if (state?.turn !== "B") return;
+    if (computerTurnRef.current) return;
+    computerTurnRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const startState = stateRef.current;
+      if (cancelled || !startState) { computerTurnRef.current = false; return; }
+
+      const action = chooseComputerTurn(startState, "B");
+      if (!action) {
+        await pushState({ ...startState, turn: "A" });
+        computerTurnRef.current = false;
+        return;
+      }
+
+      if (action.type === "place") {
+        const result = applyPlaceTool(startState, "B", action.r, action.c);
+        if (result.ok) await pushState(result.state);
+        else if (!cancelled) await pushState({ ...startState, turn: "A" });
+      } else {
+        let cur = startState;
+        let pos = action.from;
+        let movedAny = false;
+        for (let i = 0; i < action.dirs.length; i++) {
+          if (cancelled) break;
+          const isLast = i === action.dirs.length - 1;
+          const result = applyMove(cur, "B", pos, action.dirs[i], isLast);
+          if (!result.ok) break;
+          movedAny = true;
+          cur = result.state;
+          pos = result.dest;
+          await pushState(cur, result.winningMove ? "finished" : undefined);
+          if (result.winningMove) break;
+          if (!isLast) await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        // Veiligheidsvangnet: als er (onverwacht) geen enkel segment lukte,
+        // toch de beurt doorgeven zodat het spel nooit vastloopt.
+        if (!movedAny && !cancelled) await pushState({ ...startState, turn: "A" });
+      }
+      computerTurnRef.current = false;
+    })();
+
+    return () => { cancelled = true; };
+  }, [game?.vs_computer, myRole, state?.turn, state?.winner, pushState]);
 
   function selectCell(r, c) {
     if (viewingHistory || !isMyTurn || placing) return;
@@ -502,7 +562,7 @@ export default function GamePage() {
           </div>
         </aside>
 
-        {myRole && (
+        {myRole && !game.vs_computer && (
           <aside className="panel w-64 flex flex-col gap-3" style={{ height: 420 }}>
             <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
               <MessageCircle size={15} /> Chat

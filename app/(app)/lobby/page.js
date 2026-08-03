@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull } from "lucide-react";
+import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { Avatar, Badge } from "@/lib/ui";
@@ -74,7 +74,7 @@ export default function LobbyPage() {
 
     const { data: mine } = await supabase
       .from("games")
-      .select("id, status, player_a, player_b, invited_id, created_at, turn:state->>turn, a:player_a(username), b:player_b(username)")
+      .select("id, status, player_a, player_b, invited_id, vs_computer, created_at, turn:state->>turn, a:player_a(username), b:player_b(username)")
       .or(`player_a.eq.${userId},player_b.eq.${userId}`)
       .neq("status", "finished")
       .order("created_at", { ascending: false });
@@ -94,7 +94,7 @@ export default function LobbyPage() {
     const gameIds = entries.map((e) => e.game_id);
     const { data: games } = await supabase
       .from("games")
-      .select("id, player_a, player_b, state, a:player_a(username), b:player_b(username)")
+      .select("id, player_a, player_b, vs_computer, state, a:player_a(username), b:player_b(username)")
       .in("id", gameIds);
     const byId = Object.fromEntries((games || []).map((g) => [g.id, g]));
 
@@ -105,6 +105,15 @@ export default function LobbyPage() {
     const { data, error } = await supabase
       .from("games")
       .insert({ player_a: user.id, invited_id: invitedId, status: "waiting", state: freshState() })
+      .select()
+      .single();
+    if (!error) router.push(`/game/${data.id}`);
+  }
+
+  async function createComputerGame() {
+    const { data, error } = await supabase
+      .from("games")
+      .insert({ player_a: user.id, status: "active", vs_computer: true, state: freshState() })
       .select()
       .single();
     if (!error) router.push(`/game/${data.id}`);
@@ -188,6 +197,9 @@ export default function LobbyPage() {
                 <button className="btn" onClick={() => setNewGameStep("invite")}>
                   <UserPlus size={15} /> Speler uitnodigen
                 </button>
+                <button className="btn" onClick={createComputerGame}>
+                  <Cpu size={15} /> Tegen de computer
+                </button>
               </div>
             )}
 
@@ -263,7 +275,7 @@ export default function LobbyPage() {
           </h2>
           <ul className="flex flex-col gap-2">
             {myGames.map((g) => {
-              const opponentName = g.player_a === user.id ? g.b?.username : g.a?.username;
+              const opponentName = g.vs_computer ? "Computer" : (g.player_a === user.id ? g.b?.username : g.a?.username);
               const canDelete = g.status === "waiting" && g.player_a === user.id;
               const myRoleInGame = g.player_a === user.id ? "A" : "B";
               const isMyTurn = g.status === "active" && g.turn === myRoleInGame;
@@ -280,9 +292,13 @@ export default function LobbyPage() {
                     <Badge tone={g.status === "waiting" ? "waiting" : "active"}>
                       {g.status === "waiting" ? "wacht op tegenstander" : "actief"}
                     </Badge>
-                    <Badge tone={g.invited_id ? "closed" : "open"}>
-                      {g.invited_id ? "gesloten match" : "open match"}
-                    </Badge>
+                    {g.vs_computer ? (
+                      <Badge tone="neutral"><Cpu size={12} /> computer</Badge>
+                    ) : (
+                      <Badge tone={g.invited_id ? "closed" : "open"}>
+                        {g.invited_id ? "gesloten match" : "open match"}
+                      </Badge>
+                    )}
                     {isMyTurn && <Badge tone="turn">Jouw beurt!</Badge>}
                   </span>
                   {canDelete && (
@@ -320,7 +336,7 @@ export default function LobbyPage() {
           <ul className="flex flex-col gap-2">
             {archivedGames.map((e) => {
               const g = e.game;
-              const opponentName = g.player_a === user.id ? g.b?.username : g.a?.username;
+              const opponentName = g.vs_computer ? "Computer" : (g.player_a === user.id ? g.b?.username : g.a?.username);
               const myRole = g.player_a === user.id ? "A" : "B";
               const won = g.state?.winner === myRole;
               return (
