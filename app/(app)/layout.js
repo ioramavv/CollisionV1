@@ -2,13 +2,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, Menu } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, Menu, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 
 const LINKS = [
   { href: "/lobby", label: "Lobby", icon: Swords },
   { href: "/friends", label: "Vrienden", icon: Users },
+  { href: "/tutorial", label: "Uitleg", icon: HelpCircle },
 ];
 
 export default function AppLayout({ children }) {

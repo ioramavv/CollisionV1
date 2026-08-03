@@ -6,9 +6,10 @@ import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
   ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye, MessageCircle, Send, TriangleAlert,
 } from "lucide-react";
-import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
+import { SIZE, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
-import { Avatar, Rating } from "@/lib/ui";
+import { Avatar, Rating, PieceDot, DirBtn } from "@/lib/ui";
+import Board from "@/lib/Board";
 
 // Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
 // van toepassing), zodat we dat kunnen laten "schuiven" i.p.v. laten
@@ -495,89 +496,13 @@ export default function GamePage() {
 
       <div className="flex flex-col md:flex-row gap-6 items-start">
         <div className="flex flex-col items-center gap-4">
-          <div
-            className="grid"
-            style={{
-              position: "relative",
-              gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
-              gridTemplateRows: `repeat(${SIZE}, 1fr)`,
-              width: "min(88vw, 484px)",
-              height: "min(88vw, 484px)",
-              border: "10px solid var(--walnut)",
-              overflow: "hidden",
-              boxShadow: "0 0 0 1px rgba(240, 236, 226, 0.18), 0 8px 24px rgba(0,0,0,0.5)",
-            }}
-          >
-            {Array.from({ length: SIZE }).map((_, r) =>
-              Array.from({ length: SIZE }).map((_, c) => {
-                const cell = displayBoard[r][c];
-                const center = isCenter(r, c);
-                const isSel = !viewingHistory && selected && selected.r === r && selected.c === c;
-                const isSlideTarget = !viewingHistory && slideAnim && slideAnim.to.r === r && slideAnim.to.c === c;
-                return (
-                  <div
-                    key={`${r}-${c}`}
-                    onClick={() => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
-                    style={{
-                      position: "relative",
-                      background: center
-                        ? "var(--board-dark)"
-                        : (r + c) % 2 === 0 ? "var(--board-dark)" : "var(--board-light)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: isMyTurn && !viewingHistory ? "pointer" : "default",
-                    }}
-                  >
-                    {center && (
-                      <div style={{
-                        position: "absolute", width: "60%", height: "60%",
-                        border: "2px solid var(--accent)", borderRadius: "50%", opacity: 0.55,
-                      }} />
-                    )}
-                    {cell && !isSlideTarget && (
-                      <div style={{
-                        width: cell.type === "pawn" ? "62%" : "38%",
-                        height: cell.type === "pawn" ? "62%" : "38%",
-                        borderRadius: cell.type === "pawn" ? "50%" : "3px",
-                        transform: cell.type === "tool" ? "rotate(45deg)" : "none",
-                        background: cell.owner === "A" ? "var(--walnut)" : "var(--maple)",
-                        boxShadow: isSel
-                          ? "0 0 0 2px var(--accent)"
-                          : "0 0 0 1.5px rgba(23, 20, 15, 0.55), 0 1px 3px rgba(0,0,0,0.4)",
-                      }} />
-                    )}
-                  </div>
-                );
-              })
-            )}
-
-            {!viewingHistory && slideAnim && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: `${((slideAnim.animating ? slideAnim.to.r : slideAnim.from.r) / SIZE) * 100}%`,
-                  left: `${((slideAnim.animating ? slideAnim.to.c : slideAnim.from.c) / SIZE) * 100}%`,
-                  width: `${100 / SIZE}%`,
-                  height: `${100 / SIZE}%`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "top 240ms ease, left 240ms ease",
-                  pointerEvents: "none",
-                }}
-              >
-                <div style={{
-                  width: slideAnim.piece.type === "pawn" ? "62%" : "38%",
-                  height: slideAnim.piece.type === "pawn" ? "62%" : "38%",
-                  borderRadius: slideAnim.piece.type === "pawn" ? "50%" : "3px",
-                  transform: slideAnim.piece.type === "tool" ? "rotate(45deg)" : "none",
-                  background: slideAnim.piece.owner === "A" ? "var(--walnut)" : "var(--maple)",
-                  boxShadow: "0 0 0 1.5px rgba(23, 20, 15, 0.55), 0 1px 3px rgba(0,0,0,0.4)",
-                }} />
-              </div>
-            )}
-          </div>
+          <Board
+            board={displayBoard}
+            selected={!viewingHistory ? selected : null}
+            slideAnim={!viewingHistory ? slideAnim : null}
+            interactive={isMyTurn && !viewingHistory}
+            onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
+          />
 
           {!viewingHistory && selected && isMyTurn && (
             <div className="grid grid-cols-3 gap-1">
@@ -691,20 +616,3 @@ export default function GamePage() {
   );
 }
 
-function DirBtn({ icon: Icon, onClick }) {
-  return <button className="btn btn-icon" onClick={onClick}><Icon size={16} /></button>;
-}
-
-// Kleine kleurstip die exact de stukkleur van die speler toont (walnoot/
-// maple), zodat direct duidelijk is welke speler welke kleur speelt.
-function PieceDot({ role }) {
-  return (
-    <span
-      style={{
-        display: "inline-block", width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-        background: role === "A" ? "var(--walnut)" : "var(--maple)",
-        border: "1px solid rgba(240,236,226,0.3)",
-      }}
-    />
-  );
-}
