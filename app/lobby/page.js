@@ -15,6 +15,8 @@ export default function LobbyPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [joiningId, setJoiningId] = useState(null);
+  const [joinError, setJoinError] = useState(null);
 
   useEffect(() => {
     let channel;
@@ -92,12 +94,22 @@ export default function LobbyPage() {
   }
 
   async function joinGame(gameId) {
-    const { error } = await supabase
+    setJoinError(null);
+    setJoiningId(gameId);
+    const { data, error } = await supabase
       .from("games")
       .update({ player_b: user.id, status: "active" })
       .eq("id", gameId)
-      .eq("status", "waiting");
-    if (!error) router.push(`/game/${gameId}`);
+      .eq("status", "waiting")
+      .select()
+      .single();
+    setJoiningId(null);
+    if (error || !data) {
+      setJoinError("Iemand anders was je net voor — deze partij is niet meer beschikbaar.");
+      await refreshGames(user.id);
+      return;
+    }
+    router.push(`/game/${gameId}`);
   }
 
   async function signOut() {
@@ -120,6 +132,8 @@ export default function LobbyPage() {
       </div>
 
       <button className="btn btn-solid w-fit" onClick={() => createGame()}>+ Nieuwe partij</button>
+
+      {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
@@ -158,7 +172,9 @@ export default function LobbyPage() {
                 <span className="mono" style={{ color: "var(--muted)" }}>
                   {g.profiles?.username || "onbekend"} nodigt je uit
                 </span>
-                <button className="btn" onClick={() => joinGame(g.id)}>Accepteren</button>
+                <button className="btn" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
+                  {joiningId === g.id ? "Bezig..." : "Accepteren"}
+                </button>
               </li>
             ))}
           </ul>
@@ -198,7 +214,9 @@ export default function LobbyPage() {
               <span className="mono" style={{ color: "var(--muted)" }}>
                 {g.profiles?.username || "onbekend"} wacht op een tegenstander
               </span>
-              <button className="btn" onClick={() => joinGame(g.id)}>Meespelen</button>
+              <button className="btn" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
+                {joiningId === g.id ? "Bezig..." : "Meespelen"}
+              </button>
             </li>
           ))}
         </ul>
