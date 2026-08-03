@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, Menu } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 
@@ -21,6 +21,14 @@ export default function AppLayout({ children }) {
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Sluit het mobiele menu automatisch zodra er (client-side) genavigeerd
+  // wordt, zodat het niet openstaat blijft na het kiezen van een link.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setMobileMenuOpen(false);
+  }
 
   useEffect(() => {
     let active = true;
@@ -79,51 +87,62 @@ export default function AppLayout({ children }) {
 
   return (
     <div className="app-shell">
-      <nav className="sidebar">
-        <div className="sidebar-brand">
-          <Logo size={20} />
-        </div>
-        <ul className="sidebar-nav">
-          {LINKS.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                className={`sidebar-link${pathname.startsWith(link.href) ? " active" : ""}`}
-              >
-                <link.icon size={17} strokeWidth={2} />
-                {link.label}
-              </Link>
-            </li>
-          ))}
-          <li>
-            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={openFeedback}>
-              <MessageSquarePlus size={17} strokeWidth={2} />
-              Feedback
-            </button>
-          </li>
-          {isAdmin && (
-            <li>
-              <Link
-                href="/admin"
-                className={`sidebar-link${pathname.startsWith("/admin") ? " active" : ""}`}
-              >
-                <ShieldCheck size={17} strokeWidth={2} />
-                Admin
-              </Link>
-            </li>
-          )}
-        </ul>
-        <div className="sidebar-footer">
-          {profile && (
-            <span className="mono sidebar-username" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Avatar username={profile.username} size={22} />
-              {profile.username}
-            </span>
-          )}
-          <button className="btn" onClick={signOut}>
-            <LogOut size={15} strokeWidth={2} />
-            Uitloggen
+      <nav className={`sidebar${mobileMenuOpen ? " open" : ""}`}>
+        <div className="sidebar-top">
+          <div className="sidebar-brand">
+            <Logo size={20} />
+          </div>
+          <button
+            className="btn btn-icon sidebar-toggle"
+            onClick={() => setMobileMenuOpen((o) => !o)}
+            aria-label={mobileMenuOpen ? "Menu sluiten" : "Menu openen"}
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
+        </div>
+        <div className="sidebar-body">
+          <ul className="sidebar-nav">
+            {LINKS.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className={`sidebar-link${pathname.startsWith(link.href) ? " active" : ""}`}
+                >
+                  <link.icon size={17} strokeWidth={2} />
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={openFeedback}>
+                <MessageSquarePlus size={17} strokeWidth={2} />
+                Feedback
+              </button>
+            </li>
+            {isAdmin && (
+              <li>
+                <Link
+                  href="/admin"
+                  className={`sidebar-link${pathname.startsWith("/admin") ? " active" : ""}`}
+                >
+                  <ShieldCheck size={17} strokeWidth={2} />
+                  Admin
+                </Link>
+              </li>
+            )}
+          </ul>
+          <div className="sidebar-footer">
+            {profile && (
+              <span className="mono sidebar-username" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Avatar username={profile.username} size={22} />
+                {profile.username}
+              </span>
+            )}
+            <button className="btn" onClick={signOut}>
+              <LogOut size={15} strokeWidth={2} />
+              Uitloggen
+            </button>
+          </div>
         </div>
       </nav>
       <main className="app-content">{children}</main>
