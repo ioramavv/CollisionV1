@@ -1,6 +1,24 @@
 -- Collision — Supabase schema
 -- Plak dit in het Supabase dashboard: SQL Editor -> New query -> Run
 
+-- Helper: ruimt alle bestaande policies voor een tabel + commando-type op,
+-- ongeacht hun naam. Voorkomt "policy already exists"-fouten wanneer een
+-- policy ooit hernoemd is, of wanneer Postgres een te lange naam (>63
+-- tekens) stilzwijgend heeft afgekapt — in beide gevallen matcht een
+-- "drop policy if exists" met de naam uit dit bestand niet meer met wat
+-- er echt in de database staat.
+create or replace function _drop_all_policies(p_table text, p_cmd text)
+returns void as $$
+declare
+  pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = p_table and cmd = p_cmd
+  loop
+    execute format('drop policy %I on %I', pol.policyname, p_table);
+  end loop;
+end;
+$$ language plpgsql;
+
 -- 1) Profielen (koppeling aan Supabase Auth users, met gebruikersnaam)
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -10,17 +28,17 @@ create table if not exists profiles (
 
 alter table profiles enable row level security;
 
-drop policy if exists "Profielen zijn zichtbaar voor iedereen" on profiles;
+select _drop_all_policies('profiles', 'SELECT');
 create policy "Profielen zijn zichtbaar voor iedereen"
   on profiles for select
   using (true);
 
-drop policy if exists "Gebruiker mag alleen eigen profiel aanmaken" on profiles;
+select _drop_all_policies('profiles', 'INSERT');
 create policy "Gebruiker mag alleen eigen profiel aanmaken"
   on profiles for insert
   with check (auth.uid() = id);
 
-drop policy if exists "Gebruiker mag alleen eigen profiel aanpassen" on profiles;
+select _drop_all_policies('profiles', 'UPDATE');
 create policy "Gebruiker mag alleen eigen profiel aanpassen"
   on profiles for update
   using (auth.uid() = id);
@@ -60,20 +78,7 @@ create table if not exists games (
 alter table games enable row level security;
 alter table games add column if not exists invited_id uuid references profiles(id);
 
--- Ruimt élke bestaande select-policy op games op, ongeacht naam. Nodig
--- omdat een eerdere (te lange) policy-naam door Postgres' 63-tekenlimiet
--- werd afgekapt, waardoor "drop policy if exists" met de volledige naam
--- 'm niet meer terugvond.
-do $$
-declare
-  pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'games' and cmd = 'SELECT'
-  loop
-    execute format('drop policy %I on games', pol.policyname);
-  end loop;
-end $$;
-
+select _drop_all_policies('games', 'SELECT');
 create policy "Zichtbaarheid van partijen"
   on games for select
   using (
@@ -83,12 +88,12 @@ create policy "Zichtbaarheid van partijen"
     or invited_id is null
   );
 
-drop policy if exists "Ingelogde gebruiker mag een partij aanmaken" on games;
+select _drop_all_policies('games', 'INSERT');
 create policy "Ingelogde gebruiker mag een partij aanmaken"
   on games for insert
   with check (auth.uid() = player_a);
 
-drop policy if exists "Alleen de twee spelers mogen de partij updaten" on games;
+select _drop_all_policies('games', 'UPDATE');
 create policy "Spelers mogen updaten, toegestane spelers mogen meespelen"
   on games for update
   using (
@@ -125,12 +130,12 @@ create table if not exists archived_games (
 
 alter table archived_games enable row level security;
 
-drop policy if exists "Gebruiker ziet alleen eigen archief" on archived_games;
+select _drop_all_policies('archived_games', 'SELECT');
 create policy "Gebruiker ziet alleen eigen archief"
   on archived_games for select
   using (auth.uid() = user_id);
 
-drop policy if exists "Gebruiker mag eigen afgeronde partij archiveren" on archived_games;
+select _drop_all_policies('archived_games', 'INSERT');
 create policy "Gebruiker mag eigen afgeronde partij archiveren"
   on archived_games for insert
   with check (
