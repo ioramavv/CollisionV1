@@ -200,6 +200,22 @@ export default function GamePage() {
   useEffect(() => { stateRef.current = state; }, [state]);
   const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
   const nameFor = (role) => playerNames[role] || `Speler ${role}`;
+
+  // Log-items zijn gestructureerd opgeslagen (niet als kant-en-klare tekst)
+  // zodat ze hier met de actuele spelernamen getoond kunnen worden. Oudere,
+  // al opgeslagen partijen kunnen nog platte strings bevatten — die tonen
+  // we ongewijzigd.
+  function formatLogEntry(entry) {
+    if (typeof entry === "string") return entry;
+    switch (entry.key) {
+      case "start": return `Nieuw spel — ${nameFor("A")} begint (linksboven).`;
+      case "place": return `${nameFor(entry.role)} plaatst een hulpstuk op (${entry.r},${entry.c}).`;
+      case "move": return `${nameFor(entry.role)} beweegt ${entry.isPawn ? "de pion" : "een hulpstuk"} naar (${entry.r},${entry.c}).`;
+      case "resign": return `${nameFor(entry.role)} heeft opgegeven.`;
+      default: return "";
+    }
+  }
+
   const history = state?.history || [];
   const viewingHistory = historyIndex !== null;
   const displayBoard = viewingHistory ? reconstructBoard(history, historyIndex) : state?.board;
@@ -376,7 +392,7 @@ export default function GamePage() {
     const nextState = {
       ...state,
       winner: opp,
-      log: [`Speler ${myRole} heeft opgegeven.`, ...state.log].slice(0, 40),
+      log: [{ key: "resign", role: myRole }, ...state.log].slice(0, 40),
     };
     pushState(nextState, "finished");
   }
@@ -603,22 +619,23 @@ export default function GamePage() {
         <aside className="panel w-64 flex flex-col gap-3">
           <div className="text-xs flex items-center justify-between flex-wrap gap-1" style={{ color: "var(--muted)" }}>
             <span className="flex items-center gap-1">
-              <Avatar username={playerNames.A} size={18} /> {nameFor("A")} <Rating value={playerRatings.A} />
+              <PieceDot role="A" /> <Avatar username={playerNames.A} size={18} /> {nameFor("A")} <Rating value={playerRatings.A} />
             </span>
             <span>vs</span>
             <span className="flex items-center gap-1">
-              <Avatar username={playerNames.B} size={18} /> {nameFor("B")} <Rating value={playerRatings.B} />
+              <PieceDot role="B" /> <Avatar username={playerNames.B} size={18} /> {nameFor("B")} <Rating value={playerRatings.B} />
             </span>
           </div>
           <p className="text-sm flex items-center gap-2">
+            <PieceDot role={state.winner || state.turn} />
             <Avatar username={nameFor(state.winner || state.turn)} size={22} />
             {state.winner
               ? `${nameFor(state.winner)} heeft gewonnen!`
               : isMyTurn ? "Jij bent aan zet" : `${nameFor(state.turn)} is aan zet`}
           </p>
-          <div className="text-xs mono" style={{ color: "var(--muted)" }}>
-            <div>Hulpstukken A: {state.toolsRemaining.A}</div>
-            <div>Hulpstukken B: {state.toolsRemaining.B}</div>
+          <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
+            <div className="flex items-center gap-2"><PieceDot role="A" /> {nameFor("A")} — hulpstukken: {state.toolsRemaining.A}</div>
+            <div className="flex items-center gap-2"><PieceDot role="B" /> {nameFor("B")} — hulpstukken: {state.toolsRemaining.B}</div>
             {game.vs_computer && <div>Computer: {DIFFICULTY_LABELS[game.difficulty] || game.difficulty}</div>}
           </div>
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[myRole] <= 0}>
@@ -629,7 +646,7 @@ export default function GamePage() {
           )}
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
           <div className="text-xs mono flex flex-col gap-1 max-h-48 overflow-y-auto border-t pt-2" style={{ borderColor: "var(--panel-line)", color: "var(--muted)" }}>
-            {state.log.map((line, i) => <div key={i}>{line}</div>)}
+            {state.log.map((entry, i) => <div key={i}>{formatLogEntry(entry)}</div>)}
           </div>
         </aside>
 
@@ -676,4 +693,18 @@ export default function GamePage() {
 
 function DirBtn({ icon: Icon, onClick }) {
   return <button className="btn btn-icon" onClick={onClick}><Icon size={16} /></button>;
+}
+
+// Kleine kleurstip die exact de stukkleur van die speler toont (walnoot/
+// maple), zodat direct duidelijk is welke speler welke kleur speelt.
+function PieceDot({ role }) {
+  return (
+    <span
+      style={{
+        display: "inline-block", width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+        background: role === "A" ? "var(--walnut)" : "var(--maple)",
+        border: "1px solid rgba(240,236,226,0.3)",
+      }}
+    />
+  );
 }
