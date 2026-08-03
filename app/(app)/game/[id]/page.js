@@ -1,8 +1,64 @@
 "use client";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool } from "@/lib/collisionEngine";
+
+// Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
+// van toepassing), zodat we dat kunnen laten "schuiven" i.p.v. laten
+// verspringen. Een hulpstuk dat nieuw verschijnt (plaatsen, geen from-cel)
+// levert bewust geen match op — dat is geen verplaatsing.
+function diffMove(prevBoard, nextBoard) {
+  let from = null;
+  let to = null;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const before = prevBoard[r][c];
+      const after = nextBoard[r][c];
+      if (before && !after) from = { r, c, piece: before };
+      if (!before && after) to = { r, c, piece: after };
+    }
+  }
+  if (from && to && from.piece.type === to.piece.type && from.piece.owner === to.piece.owner) {
+    return { from, to, piece: from.piece };
+  }
+  return null;
+}
+
+function Confetti() {
+  // Lazy initializer: draait maar één keer (bij mount), dus de
+  // willekeurigheid hier levert een stabiele waarde op voor de levensduur
+  // van dit component-exemplaar, i.p.v. instabiele waarden per render.
+  const [pieces] = useState(() => {
+    const colors = ["var(--gold)", "var(--maple)", "var(--walnut)", "#e07a5f", "#f0ece2"];
+    return Array.from({ length: 70 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.5,
+      duration: 2.2 + Math.random() * 1.6,
+      color: colors[i % colors.length],
+      rotate: Math.floor(Math.random() * 360),
+    }));
+  });
+
+  return (
+    <div style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 60 }}>
+      {pieces.map((p) => (
+        <div
+          key={p.id}
+          className="confetti-piece"
+          style={{
+            left: `${p.left}%`,
+            background: p.color,
+            animationDelay: `${p.delay}s`,
+            animationDuration: `${p.duration}s`,
+            transform: `rotate(${p.rotate}deg)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function GamePage() {
   const { id } = useParams();
@@ -20,6 +76,8 @@ export default function GamePage() {
   const [archiving, setArchiving] = useState(false);
   const [archived, setArchived] = useState(false);
   const [archiveError, setArchiveError] = useState(null);
+  const [slideAnim, setSlideAnim] = useState(null);
+  const prevBoardRef = useRef(null);
 
   useEffect(() => {
     let channel;
@@ -59,6 +117,34 @@ export default function GamePage() {
 
   const state = game?.state;
   const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
+
+  useEffect(() => {
+    if (!state?.board) return;
+    const prevBoard = prevBoardRef.current;
+    if (prevBoard && prevBoard !== state.board) {
+      const reduceMotion = typeof window !== "undefined"
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduceMotion) {
+        const diff = diffMove(prevBoard, state.board);
+        if (diff) setSlideAnim({ ...diff, animating: false });
+      }
+    }
+    prevBoardRef.current = state.board;
+  }, [state?.board]);
+
+  useEffect(() => {
+    if (!slideAnim || slideAnim.animating) return;
+    const raf = requestAnimationFrame(() => {
+      setSlideAnim((s) => (s ? { ...s, animating: true } : s));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [slideAnim]);
+
+  useEffect(() => {
+    if (!slideAnim?.animating) return;
+    const t = setTimeout(() => setSlideAnim(null), 260);
+    return () => clearTimeout(t);
+  }, [slideAnim?.animating]);
 
   const pushState = useCallback(async (nextState, status) => {
     const payload = status ? { state: nextState, status } : { state: nextState };
@@ -143,7 +229,14 @@ export default function GamePage() {
             display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem",
           }}
         >
-          <div className="panel" style={{ maxWidth: 360, width: "100%", textAlign: "center", display: "flex", flexDirection: "column", gap: 16 }}>
+          {myRole && myRole === state.winner && <Confetti />}
+          <div
+            className="panel"
+            style={{
+              maxWidth: 360, width: "100%", textAlign: "center", display: "flex", flexDirection: "column", gap: 16,
+              position: "relative", zIndex: 61, animation: "win-title-pop 420ms ease-out both",
+            }}
+          >
             <h2 className="text-lg font-extrabold uppercase tracking-widest">
               {!myRole
                 ? "De match is beëindigd"
@@ -173,6 +266,7 @@ export default function GamePage() {
           <div
             className="grid"
             style={{
+              position: "relative",
               gridTemplateColumns: `repeat(${SIZE}, 1fr)`,
               gridTemplateRows: `repeat(${SIZE}, 1fr)`,
               width: "min(88vw, 484px)",
@@ -187,6 +281,7 @@ export default function GamePage() {
                 const cell = state.board[r][c];
                 const center = isCenter(r, c);
                 const isSel = selected && selected.r === r && selected.c === c;
+                const isSlideTarget = slideAnim && slideAnim.to.r === r && slideAnim.to.c === c;
                 return (
                   <div
                     key={`${r}-${c}`}
@@ -208,7 +303,7 @@ export default function GamePage() {
                         border: "2px solid var(--gold)", borderRadius: "50%", opacity: 0.55,
                       }} />
                     )}
-                    {cell && (
+                    {cell && !isSlideTarget && (
                       <div style={{
                         width: cell.type === "pawn" ? "62%" : "38%",
                         height: cell.type === "pawn" ? "62%" : "38%",
@@ -221,6 +316,32 @@ export default function GamePage() {
                   </div>
                 );
               })
+            )}
+
+            {slideAnim && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: `${((slideAnim.animating ? slideAnim.to.r : slideAnim.from.r) / SIZE) * 100}%`,
+                  left: `${((slideAnim.animating ? slideAnim.to.c : slideAnim.from.c) / SIZE) * 100}%`,
+                  width: `${100 / SIZE}%`,
+                  height: `${100 / SIZE}%`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "top 240ms ease, left 240ms ease",
+                  pointerEvents: "none",
+                }}
+              >
+                <div style={{
+                  width: slideAnim.piece.type === "pawn" ? "62%" : "38%",
+                  height: slideAnim.piece.type === "pawn" ? "62%" : "38%",
+                  borderRadius: slideAnim.piece.type === "pawn" ? "50%" : "3px",
+                  transform: slideAnim.piece.type === "tool" ? "rotate(45deg)" : "none",
+                  background: slideAnim.piece.owner === "A" ? "var(--walnut)" : "var(--maple)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+                }} />
+              </div>
             )}
           </div>
 
