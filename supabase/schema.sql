@@ -82,6 +82,9 @@ create table if not exists games (
   -- blijft player_b altijd null en berekent de browser van player_a zelf
   -- de zetten van de computer — er is geen aparte databasegebruiker voor.
   vs_computer boolean not null default false,
+  -- Moeilijkheidsgraad van de computerspeler, alleen relevant als
+  -- vs_computer waar is. Zie lib/collisionAI.js voor de betekenis.
+  difficulty text not null default 'medium' check (difficulty in ('easy', 'medium', 'hard', 'expert')),
   status text not null default 'waiting', -- waiting | active | finished
   state jsonb not null,
   created_at timestamptz default now(),
@@ -91,6 +94,9 @@ create table if not exists games (
 alter table games enable row level security;
 alter table games add column if not exists invited_id uuid references profiles(id);
 alter table games add column if not exists vs_computer boolean not null default false;
+alter table games add column if not exists difficulty text not null default 'medium';
+alter table games drop constraint if exists games_difficulty_check;
+alter table games add constraint games_difficulty_check check (difficulty in ('easy', 'medium', 'hard', 'expert'));
 
 select _drop_all_policies('games', 'SELECT');
 create policy "Zichtbaarheid van partijen"
