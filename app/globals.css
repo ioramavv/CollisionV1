@@ -6,8 +6,8 @@
   --panel-line: #3d362c;
   --board-dark: #d8bf8c;
   --board-light: #ecdcb4;
-  --gold: #c17f3e;
-  --gold-dim: rgba(193, 127, 62, 0.2);
+  --accent: #c1443a;
+  --accent-dim: rgba(193, 68, 58, 0.2);
   --walnut: #4a3222;
   --maple: #f1e3c2;
   --text: #f0ece2;
@@ -36,8 +36,8 @@ body {
   justify-content: center;
   gap: 6px;
   background: transparent;
-  border: 1px solid var(--gold);
-  color: var(--gold);
+  border: 1px solid var(--accent);
+  color: var(--accent);
   padding: 10px 16px;
   border-radius: 6px;
   font-size: 13px;
@@ -46,7 +46,7 @@ body {
 }
 
 .btn:hover {
-  background: var(--gold-dim);
+  background: var(--accent-dim);
 }
 
 .btn:disabled {
@@ -55,8 +55,8 @@ body {
 }
 
 .btn-solid {
-  background: var(--gold);
-  border: 1px solid var(--gold);
+  background: var(--accent);
+  border: 1px solid var(--accent);
   color: #17140f;
   font-weight: 600;
 }
@@ -111,10 +111,10 @@ body {
 
 .badge-neutral { background: var(--panel-line); color: var(--muted); }
 .badge-active { background: rgba(157, 185, 138, 0.18); color: #9db98a; }
-.badge-waiting { background: var(--gold-dim); color: var(--gold); }
+.badge-waiting { background: var(--accent-dim); color: var(--accent); }
 .badge-open { background: rgba(143, 180, 214, 0.18); color: #8fb4d6; }
 .badge-closed { background: rgba(214, 154, 184, 0.18); color: #d69ab8; }
-.badge-turn { background: var(--gold); color: #17140f; }
+.badge-turn { background: var(--accent); color: #17140f; }
 .badge-online { background: rgba(157, 185, 138, 0.18); color: #9db98a; }
 .badge-offline { background: var(--panel-line); color: var(--muted); }
 
@@ -130,7 +130,7 @@ body {
 
 .input:focus {
   outline: none;
-  border-color: var(--gold);
+  border-color: var(--accent);
 }
 
 .panel {
@@ -188,13 +188,13 @@ body {
 }
 
 .sidebar-link:hover {
-  background: var(--gold-dim);
+  background: var(--accent-dim);
   color: var(--text);
 }
 
 .sidebar-link.active {
-  background: var(--gold-dim);
-  color: var(--gold);
+  background: var(--accent-dim);
+  color: var(--accent);
   font-weight: 600;
 }
 

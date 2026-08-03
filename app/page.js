@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Logo } from "@/lib/ui";
 
 export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 text-center gap-6">
       <div>
-        <h1 className="text-4xl font-extrabold tracking-widest uppercase">
-          Colli<span style={{ color: "var(--gold)" }}>sion</span>
+        <h1 className="flex items-center justify-center">
+          <Logo size={56} />
         </h1>
         <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
           bereik als eerste het centrum · stuiterbeweging · 5 hulpstukken per speler

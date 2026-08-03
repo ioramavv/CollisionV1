@@ -176,7 +176,7 @@ export default function LobbyPage() {
         >
           <div className="panel" style={{ maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--gold)" }}>Nieuwe partij</h2>
+              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>Nieuwe partij</h2>
               <button className="btn btn-icon" onClick={closeNewGameModal}><X size={16} /></button>
             </div>
 
@@ -237,7 +237,7 @@ export default function LobbyPage() {
 
       {invites.length > 0 && (
         <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
             Uitnodigingen voor jou
           </h2>
           <ul className="flex flex-col gap-2">
@@ -258,7 +258,7 @@ export default function LobbyPage() {
 
       {myGames.length > 0 && (
         <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
             Jouw partijen
           </h2>
           <ul className="flex flex-col gap-2">
@@ -314,7 +314,7 @@ export default function LobbyPage() {
 
       {archivedGames.length > 0 && (
         <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
             Gearchiveerde partijen
           </h2>
           <ul className="flex flex-col gap-2">
@@ -341,7 +341,7 @@ export default function LobbyPage() {
       )}
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
           Open partijen
         </h2>
         {openGames.length === 0 && (
