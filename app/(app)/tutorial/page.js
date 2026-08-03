@@ -2,13 +2,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Hammer, RotateCcw, X,
+  ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState, applyMove, applyPlaceTool } from "@/lib/collisionEngine";
 import { chooseComputerTurn } from "@/lib/collisionAI";
-import { PieceDot, DirBtn } from "@/lib/ui";
-import Board from "@/lib/Board";
+import { PieceDot, DirBtn, ToolIcon } from "@/lib/ui";
+import Board, { diffMove } from "@/lib/Board";
 
 // Uitlegpagina: een echte, volledig lokale oefenpartij tegen de computer
 // (Makkelijk) — niets wordt opgeslagen in Supabase, dus er is niets om op
@@ -17,7 +17,7 @@ import Board from "@/lib/Board";
 // vaste diashow met nagemaakte voorbeelden.
 const STEPS = [
   {
-    text: "Dit is jouw pion, linksboven (donker). Klik erop om 'm te selecteren.",
+    text: "Dit is jouw pion, linksboven (uitgelicht). Klik erop om 'm te selecteren.",
     done: (ctx) => !!ctx.selected,
   },
   {
@@ -56,8 +56,10 @@ export default function TutorialPage() {
   const [turnEnded, setTurnEnded] = useState(false);
   const [error, setError] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
-  const [tipsClosed, setTipsClosed] = useState(false);
+  const [slideAnim, setSlideAnim] = useState(null);
   const computerTurnRef = useRef(false);
+  const stateRef = useRef(state);
+  const prevBoardRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -67,41 +69,89 @@ export default function TutorialPage() {
     })();
   }, [router]);
 
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  // Detecteert welk stuk verplaatst is (t.o.v. de vorige bordstaat) en laat
+  // dat kort "schuiven" — dezelfde animatie als op de echte spelpagina.
+  useEffect(() => {
+    const prevBoard = prevBoardRef.current;
+    if (prevBoard && prevBoard !== state.board) {
+      const reduceMotion = typeof window !== "undefined"
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduceMotion) {
+        const diff = diffMove(prevBoard, state.board);
+        if (diff) setSlideAnim({ ...diff, animating: false });
+      }
+    }
+    prevBoardRef.current = state.board;
+  }, [state.board]);
+
+  useEffect(() => {
+    if (!slideAnim || slideAnim.animating) return;
+    const raf = requestAnimationFrame(() => {
+      setSlideAnim((s) => (s ? { ...s, animating: true } : s));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [slideAnim]);
+
+  useEffect(() => {
+    if (!slideAnim?.animating) return;
+    const t = setTimeout(() => setSlideAnim(null), 260);
+    return () => clearTimeout(t);
+  }, [slideAnim?.animating]);
+
   // Laat de computer (rol B, Makkelijk) automatisch spelen zodra hij aan
   // zet is. Volledig lokaal, dus geen race-conditions tussen clients zoals
-  // bij een echte partij nodig is af te vangen.
+  // bij een echte partij nodig is af te vangen — wel dezelfde primitieve
+  // dependency-array + stateRef-truc als de echte spelpagina, anders zou
+  // elke tussenliggende zet (voor de schuifanimatie) dit effect opnieuw
+  // laten opstarten en zichzelf meteen afbreken.
   useEffect(() => {
     if (state.turn !== "B" || state.winner) return;
     if (computerTurnRef.current) return;
     computerTurnRef.current = true;
+    let cancelled = false;
 
-    const t = setTimeout(() => {
-      const action = chooseComputerTurn(state, "B", "easy");
-      if (!action) { setState((s) => ({ ...s, turn: "A" })); computerTurnRef.current = false; return; }
+    (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const startState = stateRef.current;
+      if (cancelled || !startState) { computerTurnRef.current = false; return; }
 
-      if (action.type === "place") {
-        const result = applyPlaceTool(state, "B", action.r, action.c);
-        setState(result.ok ? result.state : { ...state, turn: "A" });
+      const action = chooseComputerTurn(startState, "B", "easy");
+      if (!action) {
+        if (!cancelled) setState({ ...startState, turn: "A" });
         computerTurnRef.current = false;
         return;
       }
 
-      let cur = state;
+      if (action.type === "place") {
+        const result = applyPlaceTool(startState, "B", action.r, action.c);
+        if (!cancelled) setState(result.ok ? result.state : { ...startState, turn: "A" });
+        computerTurnRef.current = false;
+        return;
+      }
+
+      let cur = startState;
       let pos = action.from;
+      let movedAny = false;
       for (let i = 0; i < action.dirs.length; i++) {
+        if (cancelled) break;
         const isLast = i === action.dirs.length - 1;
         const result = applyMove(cur, "B", pos, action.dirs[i], isLast);
         if (!result.ok) break;
+        movedAny = true;
         cur = result.state;
         pos = result.dest;
+        setState(cur);
         if (result.winningMove) break;
+        if (!isLast) await new Promise((resolve) => setTimeout(resolve, 500));
       }
-      setState(cur);
+      if (!movedAny && !cancelled) setState({ ...startState, turn: "A" });
       computerTurnRef.current = false;
-    }, 500);
+    })();
 
-    return () => clearTimeout(t);
-  }, [state]);
+    return () => { cancelled = true; };
+  }, [state.turn, state.winner]);
 
   const isMyTurn = state.turn === "A" && !state.winner;
 
@@ -154,7 +204,7 @@ export default function TutorialPage() {
     setTurnEnded(false);
     setError(null);
     setStepIndex(0);
-    setTipsClosed(false);
+    setSlideAnim(null);
     computerTurnRef.current = false;
   }
 
@@ -181,6 +231,8 @@ export default function TutorialPage() {
     setStepIndex(stepIndex + 1);
   }
 
+  const highlightPawn = stepIndex === 0 && !selected ? { r: state.pawnPos.A[0], c: state.pawnPos.A[1] } : null;
+
   if (checkingAuth) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
 
   return (
@@ -195,11 +247,38 @@ export default function TutorialPage() {
 
       <div className="flex flex-col md:flex-row gap-6 items-start">
         <div className="flex flex-col items-center gap-4">
+          {currentStep && (
+            <div
+              style={{
+                width: "min(88vw, 484px)",
+                background: "#fff",
+                color: "#111",
+                borderRadius: 8,
+                padding: "12px 16px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+              }}
+            >
+              <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, flexShrink: 0, color: "#111" }}>
+                Tip
+              </span>
+              <p style={{ fontSize: 14, flex: 1, margin: 0, color: "#111" }}>{currentStep.text}</p>
+              {stepIndex < STEPS.length - 1 && (
+                <button className="btn btn-icon" onClick={() => setStepIndex((i) => i + 1)} title="Volgende tip" style={{ flexShrink: 0 }}>
+                  <ArrowRight size={15} />
+                </button>
+              )}
+            </div>
+          )}
+
           <Board
             board={state.board}
             selected={selected}
-            slideAnim={null}
+            slideAnim={slideAnim}
             interactive={isMyTurn}
+            highlight={highlightPawn}
             onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
           />
 
@@ -237,39 +316,12 @@ export default function TutorialPage() {
           )}
 
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining.A <= 0}>
-            <Hammer size={15} /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
+            <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
           </button>
           <button className="btn" onClick={restart}><RotateCcw size={15} /> Opnieuw beginnen</button>
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
         </aside>
       </div>
-
-      {!tipsClosed && currentStep && (
-        <div
-          className="panel"
-          style={{
-            position: "fixed", left: "50%", bottom: 20, transform: "translateX(-50%)",
-            maxWidth: 460, width: "calc(100% - 2rem)", zIndex: 40,
-            display: "flex", alignItems: "flex-start", gap: 12,
-            border: "1px solid var(--accent)", boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-          }}
-        >
-          <span className="text-xs uppercase tracking-widest" style={{ color: "var(--accent)", fontWeight: 700, flexShrink: 0 }}>
-            Tip
-          </span>
-          <p className="text-sm flex-1">{currentStep.text}</p>
-          <div className="flex items-center gap-1" style={{ flexShrink: 0 }}>
-            {stepIndex < STEPS.length - 1 && (
-              <button className="btn btn-icon" onClick={() => setStepIndex((i) => i + 1)} title="Volgende tip">
-                <ArrowRight size={15} />
-              </button>
-            )}
-            <button className="btn btn-icon" onClick={() => setTipsClosed(true)} title="Tips sluiten">
-              <X size={15} />
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
