@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu } from "lucide-react";
+import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -206,6 +206,13 @@ export default function LobbyPage() {
 
             {newGameStep === "computer" && (
               <div className="flex flex-col gap-2">
+                <p
+                  className="text-xs flex items-center gap-2"
+                  style={{ color: "#e0b24c", background: "rgba(224, 178, 76, 0.12)", border: "1px solid rgba(224, 178, 76, 0.3)", borderRadius: 8, padding: "6px 10px" }}
+                >
+                  <TriangleAlert size={14} strokeWidth={2} />
+                  Bèta: de computerspeler is nog in ontwikkeling en speelt niet altijd goed of foutloos.
+                </p>
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Kies een moeilijkheidsgraad:</p>
                 {DIFFICULTIES.map((difficulty) => (
                   <button key={difficulty} className="btn" onClick={() => createComputerGame(difficulty)}>
@@ -305,7 +312,7 @@ export default function LobbyPage() {
                       {g.status === "waiting" ? "wacht op tegenstander" : "actief"}
                     </Badge>
                     {g.vs_computer ? (
-                      <Badge tone="neutral"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"}</Badge>
+                      <Badge tone="warning"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"} (bèta)</Badge>
                     ) : (
                       <Badge tone={g.invited_id ? "closed" : "open"}>
                         {g.invited_id ? "gesloten match" : "open match"}

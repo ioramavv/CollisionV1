@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
-  ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye, MessageCircle, Send,
+  ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye, MessageCircle, Send, TriangleAlert,
 } from "lucide-react";
 import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -415,6 +415,16 @@ export default function GamePage() {
       {!myRole && (
         <p className="text-sm flex items-center gap-2" style={{ color: "var(--muted)" }}>
           <Eye size={15} /> Je kijkt toe als toeschouwer — je bent geen speler in deze partij.
+        </p>
+      )}
+
+      {game.vs_computer && (
+        <p
+          className="text-xs flex items-center gap-2"
+          style={{ color: "#e0b24c", background: "rgba(224, 178, 76, 0.12)", border: "1px solid rgba(224, 178, 76, 0.3)", borderRadius: 8, padding: "6px 12px" }}
+        >
+          <TriangleAlert size={14} strokeWidth={2} />
+          Bèta: de computerspeler is nog in ontwikkeling en speelt niet altijd goed of foutloos.
         </p>
       )}
 
