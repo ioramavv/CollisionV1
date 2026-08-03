@@ -324,6 +324,24 @@ details[open] .details-chevron {
   transform: rotate(90deg);
 }
 
+/* Uitlichtring in de uitleg (tutorial), bv. rond je eigen pion */
+.board-highlight-ring {
+  animation: board-highlight-pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes board-highlight-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-highlight-ring {
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
 /* Confetti bij winst */
 .confetti-piece {
   position: absolute;

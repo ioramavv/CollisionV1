@@ -4,33 +4,12 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
-  ChevronLeft, ChevronRight, RotateCcw, Hammer, Eye, MessageCircle, Send, TriangleAlert,
+  ChevronLeft, ChevronRight, RotateCcw, Eye, MessageCircle, Send, TriangleAlert,
 } from "lucide-react";
-import { SIZE, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
+import { applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
-import { Avatar, Rating, PieceDot, DirBtn } from "@/lib/ui";
-import Board from "@/lib/Board";
-
-// Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
-// van toepassing), zodat we dat kunnen laten "schuiven" i.p.v. laten
-// verspringen. Een hulpstuk dat nieuw verschijnt (plaatsen, geen from-cel)
-// levert bewust geen match op — dat is geen verplaatsing.
-function diffMove(prevBoard, nextBoard) {
-  let from = null;
-  let to = null;
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      const before = prevBoard[r][c];
-      const after = nextBoard[r][c];
-      if (before && !after) from = { r, c, piece: before };
-      if (!before && after) to = { r, c, piece: after };
-    }
-  }
-  if (from && to && from.piece.type === to.piece.type && from.piece.owner === to.piece.owner) {
-    return { from, to, piece: from.piece };
-  }
-  return null;
-}
+import { Avatar, Rating, PieceDot, DirBtn, ToolIcon } from "@/lib/ui";
+import Board, { diffMove } from "@/lib/Board";
 
 function Confetti() {
   // Lazy initializer: draait maar één keer (bij mount), dus de
@@ -564,7 +543,7 @@ export default function GamePage() {
             {game.vs_computer && <div>Computer: {DIFFICULTY_LABELS[game.difficulty] || game.difficulty}</div>}
           </div>
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[myRole] <= 0}>
-            <Hammer size={15} /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
+            <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
           </button>
           {myRole && !state.winner && (
             <button className="btn btn-danger" onClick={resign}><Flag size={15} /> Opgeven</button>
