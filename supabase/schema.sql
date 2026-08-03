@@ -78,6 +78,10 @@ create table if not exists games (
   -- meespeelt) alleen zichtbaar voor player_a en invited_id, niet voor
   -- iedereen. Null betekent: openbare partij, zoals voorheen.
   invited_id uuid references profiles(id),
+  -- Partij tegen de ingebouwde computerspeler (speler B). In dat geval
+  -- blijft player_b altijd null en berekent de browser van player_a zelf
+  -- de zetten van de computer — er is geen aparte databasegebruiker voor.
+  vs_computer boolean not null default false,
   status text not null default 'waiting', -- waiting | active | finished
   state jsonb not null,
   created_at timestamptz default now(),
@@ -86,6 +90,7 @@ create table if not exists games (
 
 alter table games enable row level security;
 alter table games add column if not exists invited_id uuid references profiles(id);
+alter table games add column if not exists vs_computer boolean not null default false;
 
 select _drop_all_policies('games', 'SELECT');
 create policy "Zichtbaarheid van partijen"
