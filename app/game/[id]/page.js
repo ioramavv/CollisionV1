@@ -16,6 +16,10 @@ export default function GamePage() {
   const [movedThisTurn, setMovedThisTurn] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archived, setArchived] = useState(false);
+  const [archiveError, setArchiveError] = useState(null);
 
   useEffect(() => {
     let channel;
@@ -37,7 +41,10 @@ export default function GamePage() {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
           (payload) => {
-            setGame(payload.new);
+            setGame((prev) => {
+              if (!prev?.state?.winner && payload.new?.state?.winner) setShowOverlay(true);
+              return payload.new;
+            });
             setSelected(null);
             setMovedThisTurn(false);
             setPlacing(false);
@@ -53,8 +60,9 @@ export default function GamePage() {
   const state = game?.state;
   const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
 
-  const pushState = useCallback(async (nextState) => {
-    const { error } = await supabase.from("games").update({ state: nextState }).eq("id", id);
+  const pushState = useCallback(async (nextState, status) => {
+    const payload = status ? { state: nextState, status } : { state: nextState };
+    const { error } = await supabase.from("games").update(payload).eq("id", id);
     if (error) setError(error.message);
   }, [id]);
 
@@ -79,7 +87,7 @@ export default function GamePage() {
     const result = applyMove(state, myRole, [selected.r, selected.c], dir, false);
     if (!result.ok) { setError(result.error); return; }
     setError(null);
-    if (result.winningMove) { pushState(result.state); return; }
+    if (result.winningMove) { pushState(result.state, "finished"); return; }
     setSelected({ r: result.dest[0], c: result.dest[1], type: selected.type });
     setMovedThisTurn(true);
     if (result.turnEnded) { pushState(result.state); }
@@ -98,12 +106,62 @@ export default function GamePage() {
     setSelected(null);
   }
 
+  function resign() {
+    if (!myRole || !state || state.winner) return;
+    if (!window.confirm("Weet je zeker dat je wilt opgeven?")) return;
+    const opp = myRole === "A" ? "B" : "A";
+    const nextState = {
+      ...state,
+      winner: opp,
+      log: [`Speler ${myRole} heeft opgegeven.`, ...state.log].slice(0, 40),
+    };
+    pushState(nextState, "finished");
+  }
+
+  async function archiveMatch() {
+    setArchiving(true);
+    setArchiveError(null);
+    const { error } = await supabase.from("archived_games").insert({ user_id: user.id, game_id: id });
+    setArchiving(false);
+    if (error && error.code !== "23505") {
+      setArchiveError("Archiveren mislukt: " + error.message);
+      return;
+    }
+    setArchived(true);
+  }
+
   if (loading) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
   if (error && !state) return <main className="min-h-screen flex items-center justify-center">{error}</main>;
   if (!state) return null;
 
   return (
     <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6">
+      {showOverlay && state.winner && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem",
+          }}
+        >
+          <div className="panel" style={{ maxWidth: 360, width: "100%", textAlign: "center", display: "flex", flexDirection: "column", gap: 16 }}>
+            <h2 className="text-lg font-extrabold uppercase tracking-widest">
+              {!myRole
+                ? "De match is beëindigd"
+                : myRole === state.winner
+                  ? "Je hebt gewonnen!"
+                  : "Je hebt verloren"}
+            </h2>
+            {archiveError && <p className="text-xs" style={{ color: "#e07a5f" }}>{archiveError}</p>}
+            {myRole && (
+              <button className="btn" onClick={archiveMatch} disabled={archiving || archived}>
+                {archived ? "Gearchiveerd ✓" : archiving ? "Bezig..." : "Archiveer deze partij"}
+              </button>
+            )}
+            <button className="btn btn-solid" onClick={() => router.push("/lobby")}>Terug naar lobby</button>
+          </div>
+        </div>
+      )}
+
       <div className="w-full flex items-center justify-between max-w-md">
         <button className="btn" onClick={() => router.push("/lobby")}>← Lobby</button>
         <h1 className="text-lg font-extrabold uppercase tracking-widest">
@@ -202,6 +260,9 @@ export default function GamePage() {
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[myRole] <= 0}>
             {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
           </button>
+          {myRole && !state.winner && (
+            <button className="btn" onClick={resign}>Opgeven</button>
+          )}
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
           <div className="text-xs mono flex flex-col gap-1 max-h-48 overflow-y-auto border-t pt-2" style={{ borderColor: "var(--panel-line)", color: "var(--muted)" }}>
             {state.log.map((line, i) => <div key={i}>{line}</div>)}

@@ -98,7 +98,59 @@ create trigger games_set_updated_at
   before update on games
   for each row execute procedure set_updated_at();
 
--- 3) Realtime aanzetten voor de games-tabel
+-- 3) Archief. Slaat NIET een kopie van het bord op — alleen een verwijzing
+--    naar de bestaande games-rij, zodat dit vrijwel geen ruimte kost.
+--    Per gebruiker worden maximaal 3 gearchiveerde partijen bewaard; de
+--    trigger hieronder ruimt de oudste(n) op zodra dat er meer worden.
+create table if not exists archived_games (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) not null,
+  game_id uuid references games(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  unique (user_id, game_id)
+);
+
+alter table archived_games enable row level security;
+
+drop policy if exists "Gebruiker ziet alleen eigen archief" on archived_games;
+create policy "Gebruiker ziet alleen eigen archief"
+  on archived_games for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Gebruiker mag eigen afgeronde partij archiveren" on archived_games;
+create policy "Gebruiker mag eigen afgeronde partij archiveren"
+  on archived_games for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from games g
+      where g.id = game_id
+        and g.status = 'finished'
+        and (g.player_a = auth.uid() or g.player_b = auth.uid())
+    )
+  );
+
+create or replace function enforce_archive_limit()
+returns trigger as $$
+begin
+  delete from archived_games
+  where user_id = new.user_id
+    and id not in (
+      select id from archived_games
+      where user_id = new.user_id
+      order by created_at desc
+      limit 3
+    );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists archived_games_enforce_limit on archived_games;
+create trigger archived_games_enforce_limit
+  after insert on archived_games
+  for each row execute procedure enforce_archive_limit();
+
+-- 4) Realtime aanzetten voor de games-tabel
 do $$
 begin
   if not exists (
