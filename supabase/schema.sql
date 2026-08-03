@@ -19,12 +19,12 @@ begin
 end;
 $$ language plpgsql;
 
--- Helper: is de ingelogde gebruiker de admin-account (jorADMIN)? Gebruikt
+-- Helper: is de ingelogde gebruiker de admin-account (JorADMIN)? Gebruikt
 -- in policies die admin-only toegang nodig hebben.
 create or replace function is_admin()
 returns boolean as $$
   select exists (
-    select 1 from profiles where id = auth.uid() and username = 'jorADMIN'
+    select 1 from profiles where id = auth.uid() and username = 'JorADMIN'
   );
 $$ language sql stable;
 
@@ -218,7 +218,7 @@ create policy "Betrokkenen mogen verzoek of vriendschap verwijderen"
   using (auth.uid() = requester_id or auth.uid() = addressee_id);
 
 -- 5) Feedback. Gebruikers kunnen feedback achterlaten; alleen de admin
---    (jorADMIN) kan de ingezonden feedback teruglezen.
+--    (JorADMIN) kan de ingezonden feedback teruglezen.
 create table if not exists feedback (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) not null,

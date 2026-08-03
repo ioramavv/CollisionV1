@@ -73,7 +73,7 @@ export default function AppLayout({ children }) {
     setFeedbackText("");
   }
 
-  const isAdmin = profile?.username === "jorADMIN";
+  const isAdmin = profile?.username === "JorADMIN";
 
   return (
     <div className="app-shell">
