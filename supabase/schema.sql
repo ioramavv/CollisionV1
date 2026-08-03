@@ -19,6 +19,15 @@ begin
 end;
 $$ language plpgsql;
 
+-- Helper: is de ingelogde gebruiker de admin-account (jorADMIN)? Gebruikt
+-- in policies die admin-only toegang nodig hebben.
+create or replace function is_admin()
+returns boolean as $$
+  select exists (
+    select 1 from profiles where id = auth.uid() and username = 'jorADMIN'
+  );
+$$ language sql stable;
+
 -- 1) Profielen (koppeling aan Supabase Auth users, met gebruikersnaam)
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -86,6 +95,7 @@ create policy "Zichtbaarheid van partijen"
     or auth.uid() = player_b
     or auth.uid() = invited_id
     or invited_id is null
+    or is_admin()
   );
 
 select _drop_all_policies('games', 'INSERT');
@@ -207,7 +217,28 @@ create policy "Betrokkenen mogen verzoek of vriendschap verwijderen"
   on friendships for delete
   using (auth.uid() = requester_id or auth.uid() = addressee_id);
 
--- 5) Realtime aanzetten voor de games- en friendships-tabellen
+-- 5) Feedback. Gebruikers kunnen feedback achterlaten; alleen de admin
+--    (jorADMIN) kan de ingezonden feedback teruglezen.
+create table if not exists feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) not null,
+  message text not null,
+  created_at timestamptz default now()
+);
+
+alter table feedback enable row level security;
+
+select _drop_all_policies('feedback', 'INSERT');
+create policy "Gebruiker mag feedback achterlaten"
+  on feedback for insert
+  with check (auth.uid() = user_id);
+
+select _drop_all_policies('feedback', 'SELECT');
+create policy "Alleen admin mag feedback lezen"
+  on feedback for select
+  using (is_admin());
+
+-- 6) Realtime aanzetten voor de games- en friendships-tabellen
 create or replace function _ensure_realtime(p_table text)
 returns void as $$
 begin
