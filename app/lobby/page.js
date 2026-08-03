@@ -11,6 +11,7 @@ export default function LobbyPage() {
   const [openGames, setOpenGames] = useState([]);
   const [invites, setInvites] = useState([]);
   const [myGames, setMyGames] = useState([]);
+  const [archivedGames, setArchivedGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -62,11 +63,31 @@ export default function LobbyPage() {
 
     const { data: mine } = await supabase
       .from("games")
-      .select("id, status, player_a, player_b, created_at")
+      .select("id, status, player_a, player_b, created_at, a:player_a(username), b:player_b(username)")
       .or(`player_a.eq.${userId},player_b.eq.${userId}`)
       .neq("status", "finished")
       .order("created_at", { ascending: false });
     setMyGames(mine || []);
+
+    await refreshArchive(userId);
+  }
+
+  async function refreshArchive(userId) {
+    const { data: entries } = await supabase
+      .from("archived_games")
+      .select("id, game_id, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (!entries || entries.length === 0) { setArchivedGames([]); return; }
+
+    const gameIds = entries.map((e) => e.game_id);
+    const { data: games } = await supabase
+      .from("games")
+      .select("id, player_a, player_b, state, a:player_a(username), b:player_b(username)")
+      .in("id", gameIds);
+    const byId = Object.fromEntries((games || []).map((g) => [g.id, g]));
+
+    setArchivedGames(entries.map((e) => ({ ...e, game: byId[e.game_id] })).filter((e) => e.game));
   }
 
   async function createGame(invitedId = null) {
@@ -187,14 +208,42 @@ export default function LobbyPage() {
             Jouw partijen
           </h2>
           <ul className="flex flex-col gap-2">
-            {myGames.map((g) => (
-              <li key={g.id} className="flex items-center justify-between text-sm">
-                <span className="mono" style={{ color: "var(--muted)" }}>
-                  Partij {g.id.slice(0, 8)} · {g.status === "waiting" ? "wacht op tegenstander" : "actief"}
-                </span>
-                <a className="btn" href={`/game/${g.id}`}>Openen</a>
-              </li>
-            ))}
+            {myGames.map((g) => {
+              const opponentName = g.player_a === user.id ? g.b?.username : g.a?.username;
+              const statusLabel = g.status === "waiting" ? "wacht op tegenstander" : "actief";
+              return (
+                <li key={g.id} className="flex items-center justify-between text-sm">
+                  <span className="mono" style={{ color: "var(--muted)" }}>
+                    {opponentName ? `Partij met ${opponentName}` : "Partij"} · {statusLabel}
+                  </span>
+                  <a className="btn" href={`/game/${g.id}`}>Openen</a>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {archivedGames.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--gold)" }}>
+            Gearchiveerde partijen
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {archivedGames.map((e) => {
+              const g = e.game;
+              const opponentName = g.player_a === user.id ? g.b?.username : g.a?.username;
+              const myRole = g.player_a === user.id ? "A" : "B";
+              const result = g.state?.winner === myRole ? "gewonnen" : "verloren";
+              return (
+                <li key={e.id} className="flex items-center justify-between text-sm">
+                  <span className="mono" style={{ color: "var(--muted)" }}>
+                    Partij met {opponentName || "onbekend"} · {result}
+                  </span>
+                  <a className="btn" href={`/game/${g.id}`}>Bekijk</a>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
