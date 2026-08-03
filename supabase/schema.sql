@@ -60,8 +60,21 @@ create table if not exists games (
 alter table games enable row level security;
 alter table games add column if not exists invited_id uuid references profiles(id);
 
-drop policy if exists "Partijen zijn zichtbaar voor iedereen" on games;
-create policy "Open partijen zijn zichtbaar voor iedereen, uitnodigingen alleen voor betrokkenen"
+-- Ruimt élke bestaande select-policy op games op, ongeacht naam. Nodig
+-- omdat een eerdere (te lange) policy-naam door Postgres' 63-tekenlimiet
+-- werd afgekapt, waardoor "drop policy if exists" met de volledige naam
+-- 'm niet meer terugvond.
+do $$
+declare
+  pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'games' and cmd = 'SELECT'
+  loop
+    execute format('drop policy %I on games', pol.policyname);
+  end loop;
+end $$;
+
+create policy "Zichtbaarheid van partijen"
   on games for select
   using (
     auth.uid() = player_a
