@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool } from "@/lib/collisionEngine";
+import { SIZE, CENTER, DIRS, isCenter, slide, applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
 
 // Vergelijkt twee bordstaten en vindt het ene stuk dat verplaatst is (indien
 // van toepassing), zodat we dat kunnen laten "schuiven" i.p.v. laten
@@ -78,6 +78,7 @@ export default function GamePage() {
   const [archiveError, setArchiveError] = useState(null);
   const [slideAnim, setSlideAnim] = useState(null);
   const [playerNames, setPlayerNames] = useState({ A: null, B: null });
+  const [historyIndex, setHistoryIndex] = useState(null); // null = live, anders index in state.history
   const prevBoardRef = useRef(null);
 
   useEffect(() => {
@@ -124,6 +125,24 @@ export default function GamePage() {
   const state = game?.state;
   const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
   const nameFor = (role) => playerNames[role] || `Speler ${role}`;
+  const history = state?.history || [];
+  const viewingHistory = historyIndex !== null;
+  const displayBoard = viewingHistory ? reconstructBoard(history, historyIndex) : state?.board;
+
+  function stepHistoryBack() {
+    setHistoryIndex((i) => {
+      const cur = i === null ? history.length - 1 : i;
+      return Math.max(-1, cur - 1);
+    });
+  }
+
+  function stepHistoryForward() {
+    setHistoryIndex((i) => {
+      if (i === null) return null;
+      const next = i + 1;
+      return next >= history.length - 1 ? null : next;
+    });
+  }
 
   useEffect(() => {
     if (!state?.board) return;
@@ -160,7 +179,7 @@ export default function GamePage() {
   }, [id]);
 
   function selectCell(r, c) {
-    if (!isMyTurn || placing) return;
+    if (viewingHistory || !isMyTurn || placing) return;
     const cell = state.board[r][c];
     if (!cell || cell.owner !== myRole) return;
     if (movedThisTurn && !(selected && selected.r === r && selected.c === c)) return;
@@ -168,7 +187,7 @@ export default function GamePage() {
   }
 
   function handlePlaceClick(r, c) {
-    if (!isMyTurn || !placing) return;
+    if (viewingHistory || !isMyTurn || !placing) return;
     const result = applyPlaceTool(state, myRole, r, c);
     if (!result.ok) { setError(result.error); return; }
     setError(null);
@@ -198,6 +217,26 @@ export default function GamePage() {
     setPlacing((p) => !p);
     setSelected(null);
   }
+
+  // Pijltjestoetsen bewegen het geselecteerde stuk, Enter bevestigt (zelfde
+  // als de STOP-knop).
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (viewingHistory || !isMyTurn) return;
+      const dirByKey = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+      if (dirByKey[e.key]) {
+        if (!selected || placing) return;
+        e.preventDefault();
+        handleMove(dirByKey[e.key]);
+      } else if (e.key === "Enter") {
+        if (!selected || !movedThisTurn) return;
+        e.preventDefault();
+        endTurn();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewingHistory, isMyTurn, selected, placing, movedThisTurn, state]);
 
   function resign() {
     if (!myRole || !state || state.winner) return;
@@ -285,10 +324,10 @@ export default function GamePage() {
           >
             {Array.from({ length: SIZE }).map((_, r) =>
               Array.from({ length: SIZE }).map((_, c) => {
-                const cell = state.board[r][c];
+                const cell = displayBoard[r][c];
                 const center = isCenter(r, c);
-                const isSel = selected && selected.r === r && selected.c === c;
-                const isSlideTarget = slideAnim && slideAnim.to.r === r && slideAnim.to.c === c;
+                const isSel = !viewingHistory && selected && selected.r === r && selected.c === c;
+                const isSlideTarget = !viewingHistory && slideAnim && slideAnim.to.r === r && slideAnim.to.c === c;
                 return (
                   <div
                     key={`${r}-${c}`}
@@ -301,7 +340,7 @@ export default function GamePage() {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      cursor: isMyTurn ? "pointer" : "default",
+                      cursor: isMyTurn && !viewingHistory ? "pointer" : "default",
                     }}
                   >
                     {center && (
@@ -325,7 +364,7 @@ export default function GamePage() {
               })
             )}
 
-            {slideAnim && (
+            {!viewingHistory && slideAnim && (
               <div
                 style={{
                   position: "absolute",
@@ -352,7 +391,7 @@ export default function GamePage() {
             )}
           </div>
 
-          {selected && isMyTurn && (
+          {!viewingHistory && selected && isMyTurn && (
             <div className="grid grid-cols-3 gap-1">
               <div />
               <DirBtn label="▲" onClick={() => handleMove("up")} />
@@ -363,6 +402,26 @@ export default function GamePage() {
               <div />
               <DirBtn label="▼" onClick={() => handleMove("down")} />
               <div />
+            </div>
+          )}
+
+          {history.length > 0 && (
+            <div className="flex flex-col items-center gap-1">
+              {viewingHistory && (
+                <p className="text-xs" style={{ color: "var(--gold)" }}>
+                  Je bekijkt een eerdere situatie — puur ter inzage.
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <button className="btn" onClick={stepHistoryBack} disabled={historyIndex === -1}>◀ Vorige zet</button>
+                <span className="text-xs mono" style={{ color: "var(--muted)" }}>
+                  {viewingHistory ? `Zet ${historyIndex + 1} / ${history.length}` : "Nu"}
+                </span>
+                <button className="btn" onClick={stepHistoryForward} disabled={!viewingHistory}>Volgende zet ▶</button>
+                {viewingHistory && (
+                  <button className="btn btn-solid" onClick={() => setHistoryIndex(null)}>Terug naar nu</button>
+                )}
+              </div>
             </div>
           )}
         </div>
