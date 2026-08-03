@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert } from "lucide-react";
+import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
+import { BUGFIXES } from "@/lib/bugfixes";
 import { Avatar, Badge, Rating } from "@/lib/ui";
 
 export default function LobbyPage() {
@@ -407,6 +408,23 @@ export default function LobbyPage() {
               <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
                 <Play size={15} /> {joiningId === g.id ? "Bezig..." : "Meespelen"}
               </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
+          <Bug size={15} /> Opgeloste bugs
+        </h2>
+        <ul className="flex flex-col gap-3">
+          {BUGFIXES.map((fix, i) => (
+            <li key={i} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <strong>{fix.title}</strong>
+                {fix.date && <span className="text-xs mono" style={{ color: "var(--muted)" }}>{fix.date}</span>}
+              </div>
+              <p className="text-xs" style={{ color: "var(--muted)" }}>{fix.detail}</p>
             </li>
           ))}
         </ul>
