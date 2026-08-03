@@ -6,7 +6,7 @@ import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
   ChevronLeft, ChevronRight, RotateCcw, Eye, MessageCircle, Send, TriangleAlert,
 } from "lucide-react";
-import { applyMove, applyPlaceTool, reconstructBoard } from "@/lib/collisionEngine";
+import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { Avatar, Rating, PieceDot, DirBtn, ToolIcon } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
@@ -180,6 +180,7 @@ export default function GamePage() {
   useEffect(() => { stateRef.current = state; }, [state]);
   const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
   const nameFor = (role) => playerNames[role] || `Speler ${role}`;
+  const canStopHere = state ? bothPawnsCanReachCenter(state.board, state.pawnPos) : true;
 
   // Log-items zijn gestructureerd opgeslagen (niet als kant-en-klare tekst)
   // zodat ze hier met de actuele spelernamen getoond kunnen worden. Oudere,
@@ -335,6 +336,16 @@ export default function GamePage() {
 
   function endTurn() {
     if (!selected || !state) return;
+    // De insluitregel geldt pas op het moment dat de beurt echt eindigt —
+    // je mag onderweg (tussen twee stuiters in) best over zo'n positie
+    // heen bewegen, maar hier, waar de beurt zou stoppen, moet 't gecheckt
+    // worden (applyMove valideert dit al per stuiter, maar STOP eindigt de
+    // beurt buiten applyMove om).
+    if (!bothPawnsCanReachCenter(state.board, state.pawnPos)) {
+      setError("Je kunt hier niet stoppen — dit zou een pion volledig insluiten. Beweeg verder.");
+      return;
+    }
+    setError(null);
     const opp = myRole === "A" ? "B" : "A";
     pushState({ ...state, turn: opp });
   }
@@ -489,7 +500,7 @@ export default function GamePage() {
               <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
               <div />
               <DirBtn icon={ArrowLeft} onClick={() => handleMove("left")} />
-              <button className="btn" onClick={endTurn} disabled={!movedThisTurn}><Square size={14} /> STOP</button>
+              <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}><Square size={14} /> STOP</button>
               <DirBtn icon={ArrowRight} onClick={() => handleMove("right")} />
               <div />
               <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />

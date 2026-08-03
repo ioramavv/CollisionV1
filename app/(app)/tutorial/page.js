@@ -5,7 +5,7 @@ import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { freshState, applyMove, applyPlaceTool } from "@/lib/collisionEngine";
+import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
 import { chooseComputerTurn } from "@/lib/collisionAI";
 import { PieceDot, DirBtn, ToolIcon } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
@@ -154,6 +154,7 @@ export default function TutorialPage() {
   }, [state.turn, state.winner]);
 
   const isMyTurn = state.turn === "A" && !state.winner;
+  const canStopHere = bothPawnsCanReachCenter(state.board, state.pawnPos);
 
   function selectCell(r, c) {
     if (!isMyTurn || placing) return;
@@ -186,6 +187,11 @@ export default function TutorialPage() {
 
   function endTurn() {
     if (!selected) return;
+    if (!bothPawnsCanReachCenter(state.board, state.pawnPos)) {
+      setError("Je kunt hier niet stoppen — dit zou een pion volledig insluiten. Beweeg verder.");
+      return;
+    }
+    setError(null);
     setTurnEnded(true);
     setState((s) => ({ ...s, turn: "B" }));
   }
@@ -288,7 +294,7 @@ export default function TutorialPage() {
               <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
               <div />
               <DirBtn icon={ArrowLeft} onClick={() => handleMove("left")} />
-              <button className="btn" onClick={endTurn} disabled={!movedThisTurn}><Square size={14} /> STOP</button>
+              <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}><Square size={14} /> STOP</button>
               <DirBtn icon={ArrowRight} onClick={() => handleMove("right")} />
               <div />
               <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />
