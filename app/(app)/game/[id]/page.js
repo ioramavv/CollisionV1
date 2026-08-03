@@ -162,14 +162,6 @@ export default function GamePage() {
         </div>
       )}
 
-      <div className="w-full flex items-center justify-between max-w-md">
-        <button className="btn" onClick={() => router.push("/lobby")}>← Lobby</button>
-        <h1 className="text-lg font-extrabold uppercase tracking-widest">
-          Colli<span style={{ color: "var(--gold)" }}>sion</span>
-        </h1>
-        <div style={{ width: "5.5rem" }} />
-      </div>
-
       {!myRole && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Je kijkt toe als toeschouwer — je bent geen speler in deze partij.
