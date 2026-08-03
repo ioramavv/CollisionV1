@@ -268,7 +268,12 @@ export default function LobbyPage() {
               const myRoleInGame = g.player_a === user.id ? "A" : "B";
               const isMyTurn = g.status === "active" && g.turn === myRoleInGame;
               return (
-                <li key={g.id} className="flex items-center justify-between text-sm">
+                <li
+                  key={g.id}
+                  className="flex items-center justify-between text-sm"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => router.push(`/game/${g.id}`)}
+                >
                   <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
                     <Avatar username={opponentName} />
                     {opponentName ? `Partij met ${opponentName}` : "Partij"}
@@ -280,27 +285,26 @@ export default function LobbyPage() {
                     </Badge>
                     {isMyTurn && <Badge tone="turn">Jouw beurt!</Badge>}
                   </span>
-                  <div data-menu-id={g.id} style={{ position: "relative" }}>
-                    <button className="btn btn-icon" onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}>
-                      <MoreVertical size={16} />
-                    </button>
-                    {openMenuId === g.id && (
-                      <div
-                        className="panel"
-                        style={{
-                          position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 20,
-                          padding: 8, display: "flex", flexDirection: "column", gap: 4, minWidth: 150,
-                        }}
-                      >
-                        <a className="btn" href={`/game/${g.id}`}><Play size={14} /> Openen</a>
-                        {canDelete && (
+                  {canDelete && (
+                    <div data-menu-id={g.id} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+                      <button className="btn btn-icon" onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}>
+                        <MoreVertical size={16} />
+                      </button>
+                      {openMenuId === g.id && (
+                        <div
+                          className="panel"
+                          style={{
+                            position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 20,
+                            padding: 8, display: "flex", flexDirection: "column", gap: 4, minWidth: 150,
+                          }}
+                        >
                           <button className="btn btn-danger" onClick={() => { setOpenMenuId(null); deleteGame(g.id); }} disabled={deletingId === g.id}>
                             <Trash2 size={14} /> {deletingId === g.id ? "Bezig..." : "Verwijderen"}
                           </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
