@@ -117,6 +117,7 @@ body {
 .badge-turn { background: var(--accent); color: #17140f; }
 .badge-online { background: rgba(157, 185, 138, 0.18); color: #9db98a; }
 .badge-offline { background: var(--panel-line); color: var(--muted); }
+.badge-warning { background: rgba(224, 178, 76, 0.18); color: #e0b24c; }
 
 .input {
   background: var(--panel);
