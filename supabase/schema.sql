@@ -102,6 +102,11 @@ create policy "Spelers mogen updaten, toegestane spelers mogen meespelen"
     or (status = 'waiting' and (invited_id is null or auth.uid() = invited_id))
   );
 
+select _drop_all_policies('games', 'DELETE');
+create policy "Aanmaker mag eigen wachtende partij verwijderen"
+  on games for delete
+  using (auth.uid() = player_a and status = 'waiting');
+
 -- updated_at automatisch bijwerken
 create or replace function set_updated_at()
 returns trigger as $$
