@@ -77,6 +77,7 @@ export default function GamePage() {
   const [archived, setArchived] = useState(false);
   const [archiveError, setArchiveError] = useState(null);
   const [slideAnim, setSlideAnim] = useState(null);
+  const [playerNames, setPlayerNames] = useState({ A: null, B: null });
   const prevBoardRef = useRef(null);
 
   useEffect(() => {
@@ -87,9 +88,14 @@ export default function GamePage() {
       if (!user) { router.push("/login"); return; }
       setUser(user);
 
-      const { data, error } = await supabase.from("games").select("*").eq("id", id).single();
+      const { data, error } = await supabase
+        .from("games")
+        .select("*, a:player_a(username), b:player_b(username)")
+        .eq("id", id)
+        .single();
       if (error || !data) { setError("Partij niet gevonden."); setLoading(false); return; }
       setGame(data);
+      setPlayerNames({ A: data.a?.username || null, B: data.b?.username || null });
       setMyRole(data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null);
       setLoading(false);
 
@@ -117,6 +123,7 @@ export default function GamePage() {
 
   const state = game?.state;
   const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
+  const nameFor = (role) => playerNames[role] || `Speler ${role}`;
 
   useEffect(() => {
     if (!state?.board) return;
@@ -363,8 +370,8 @@ export default function GamePage() {
         <aside className="panel w-64 flex flex-col gap-3">
           <p className="text-sm">
             {state.winner
-              ? `Speler ${state.winner} heeft gewonnen!`
-              : isMyTurn ? "Jij bent aan zet" : `Speler ${state.turn} is aan zet`}
+              ? `${nameFor(state.winner)} heeft gewonnen!`
+              : isMyTurn ? "Jij bent aan zet" : `${nameFor(state.turn)} is aan zet`}
           </p>
           <div className="text-xs mono" style={{ color: "var(--muted)" }}>
             <div>Hulpstukken A: {state.toolsRemaining.A}</div>

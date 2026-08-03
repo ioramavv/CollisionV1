@@ -113,9 +113,9 @@ create policy "Spelers mogen updaten, toegestane spelers mogen meespelen"
   );
 
 select _drop_all_policies('games', 'DELETE');
-create policy "Aanmaker mag eigen wachtende partij verwijderen"
+create policy "Aanmaker mag wachtende partij verwijderen, admin altijd"
   on games for delete
-  using (auth.uid() = player_a and status = 'waiting');
+  using ((auth.uid() = player_a and status = 'waiting') or is_admin());
 
 -- updated_at automatisch bijwerken
 create or replace function set_updated_at()
@@ -238,7 +238,7 @@ create policy "Alleen admin mag feedback lezen"
   on feedback for select
   using (is_admin());
 
--- 6) Realtime aanzetten voor de games- en friendships-tabellen
+-- 6) Realtime aanzetten voor de games-, friendships- en feedback-tabellen
 create or replace function _ensure_realtime(p_table text)
 returns void as $$
 begin
@@ -253,3 +253,4 @@ $$ language plpgsql;
 
 select _ensure_realtime('games');
 select _ensure_realtime('friendships');
+select _ensure_realtime('feedback');
