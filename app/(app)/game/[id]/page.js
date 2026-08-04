@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
-import { Avatar, Rating, PieceDot, DirBtn, ToolIcon } from "@/lib/ui";
+import { Avatar, Rating, DirBtn, ToolIcon } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
 
 function Confetti() {
@@ -492,6 +492,8 @@ export default function GamePage() {
             slideAnim={!viewingHistory ? slideAnim : null}
             interactive={isMyTurn && !viewingHistory}
             onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
+            labelTopLeft={nameFor("A")}
+            labelBottomRight={nameFor("B")}
           />
 
           {!viewingHistory && selected && isMyTurn && (
@@ -534,23 +536,22 @@ export default function GamePage() {
         <aside className="panel w-64 flex flex-col gap-3">
           <div className="text-xs flex items-center justify-between flex-wrap gap-1" style={{ color: "var(--muted)" }}>
             <span className="flex items-center gap-1">
-              <PieceDot role="A" /> <Avatar username={playerNames.A} size={18} /> {nameFor("A")} <Rating value={playerRatings.A} />
+              <Avatar username={playerNames.A} size={18} /> {nameFor("A")} <Rating value={playerRatings.A} />
             </span>
             <span>vs</span>
             <span className="flex items-center gap-1">
-              <PieceDot role="B" /> <Avatar username={playerNames.B} size={18} /> {nameFor("B")} <Rating value={playerRatings.B} />
+              <Avatar username={playerNames.B} size={18} /> {nameFor("B")} <Rating value={playerRatings.B} />
             </span>
           </div>
           <p className="text-sm flex items-center gap-2">
-            <PieceDot role={state.winner || state.turn} />
             <Avatar username={nameFor(state.winner || state.turn)} size={22} />
             {state.winner
               ? `${nameFor(state.winner)} heeft gewonnen!`
               : isMyTurn ? "Jij bent aan zet" : `${nameFor(state.turn)} is aan zet`}
           </p>
           <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
-            <div className="flex items-center gap-2"><PieceDot role="A" /> {nameFor("A")} — hulpstukken: {state.toolsRemaining.A}</div>
-            <div className="flex items-center gap-2"><PieceDot role="B" /> {nameFor("B")} — hulpstukken: {state.toolsRemaining.B}</div>
+            <div>{nameFor("A")} — hulpstukken: {state.toolsRemaining.A}</div>
+            <div>{nameFor("B")} — hulpstukken: {state.toolsRemaining.B}</div>
             {game.vs_computer && <div>Computer: {DIFFICULTY_LABELS[game.difficulty] || game.difficulty}</div>}
           </div>
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[myRole] <= 0}>
