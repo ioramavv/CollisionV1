@@ -7,7 +7,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
 import { chooseComputerTurn } from "@/lib/collisionAI";
-import { PieceDot, DirBtn, ToolIcon } from "@/lib/ui";
+import { DirBtn, ToolIcon } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
 
 // Uitlegpagina: een echte, volledig lokale oefenpartij tegen de computer
@@ -286,6 +286,8 @@ export default function TutorialPage() {
             interactive={isMyTurn}
             highlight={highlightPawn}
             onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
+            labelTopLeft="Jij"
+            labelBottomRight="Computer"
           />
 
           {selected && isMyTurn && (
@@ -305,8 +307,8 @@ export default function TutorialPage() {
 
         <aside className="panel w-64 flex flex-col gap-3">
           <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
-            <div className="flex items-center gap-2"><PieceDot role="A" /> Jij — hulpstukken: {state.toolsRemaining.A}</div>
-            <div className="flex items-center gap-2"><PieceDot role="B" /> Computer — hulpstukken: {state.toolsRemaining.B}</div>
+            <div>Jij — hulpstukken: {state.toolsRemaining.A}</div>
+            <div>Computer — hulpstukken: {state.toolsRemaining.B}</div>
           </div>
 
           {state.winner ? (
@@ -315,8 +317,7 @@ export default function TutorialPage() {
               {state.winner === "A" ? "Je hebt gewonnen!" : "De computer heeft gewonnen."}
             </p>
           ) : (
-            <p className="text-sm flex items-center gap-2">
-              <PieceDot role={state.turn} />
+            <p className="text-sm">
               {isMyTurn ? "Jij bent aan zet" : "Computer is aan zet"}
             </p>
           )}
