@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { BUGFIXES } from "@/lib/bugfixes";
-import { Avatar, Badge, Rating } from "@/lib/ui";
+import { Avatar, Badge, Rating, BoardIcon } from "@/lib/ui";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -328,6 +328,17 @@ export default function LobbyPage() {
         </h1>
         <button className="btn btn-solid" onClick={() => setNewGameStep("choose")}>
           <Plus size={16} /> Nieuwe partij
+        </button>
+      </div>
+
+      <div className="panel flex items-center gap-3 flex-wrap" style={{ borderColor: "var(--accent)" }}>
+        <BoardIcon size={30} />
+        <p className="text-sm flex-1" style={{ minWidth: 180 }}>
+          Ken je de spelregels nog niet?{" "}
+          <span style={{ color: "var(--muted)" }}>Speel een korte interactieve uitlegronde en leer Collision spelenderwijs.</span>
+        </p>
+        <button className="btn btn-solid" onClick={() => router.push("/tutorial")}>
+          <BoardIcon size={14} /> Start uitleg
         </button>
       </div>
 
