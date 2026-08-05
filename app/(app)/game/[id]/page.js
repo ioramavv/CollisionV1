@@ -87,7 +87,7 @@ export default function GamePage() {
     // vaker aangeroepen worden dan strikt nodig. ratingAppliedRef voorkomt
     // alleen dubbele netwerk-calls vanuit deze ene client.
     async function maybeApplyRating(gameRow) {
-      if (!gameRow || gameRow.vs_computer || gameRow.status !== "finished" || !gameRow.state?.winner) return;
+      if (!gameRow || gameRow.vs_computer || gameRow.local_multiplayer || gameRow.status !== "finished" || !gameRow.state?.winner) return;
       if (ratingAppliedRef.current) return;
       ratingAppliedRef.current = true;
 
@@ -120,8 +120,17 @@ export default function GamePage() {
         .single();
       if (error || !data) { setError("Partij niet gevonden."); setLoading(false); return; }
       setGame(data);
-      setPlayerNames({ A: data.a?.username || null, B: data.vs_computer ? "Computer" : (data.b?.username || null) });
-      const initialRatings = { A: data.a?.rating ?? null, B: data.vs_computer ? null : (data.b?.rating ?? null) };
+      if (data.local_multiplayer) {
+        setPlayerNames({
+          A: data.state?.localNames?.A || "Speler 1",
+          B: data.state?.localNames?.B || "Speler 2",
+        });
+      } else {
+        setPlayerNames({ A: data.a?.username || null, B: data.vs_computer ? "Computer" : (data.b?.username || null) });
+      }
+      const initialRatings = data.local_multiplayer
+        ? { A: null, B: null }
+        : { A: data.a?.rating ?? null, B: data.vs_computer ? null : (data.b?.rating ?? null) };
       setPlayerRatings(initialRatings);
       initialRatingsRef.current = initialRatings;
       const role = data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null;
@@ -178,7 +187,12 @@ export default function GamePage() {
 
   const state = game?.state;
   useEffect(() => { stateRef.current = state; }, [state]);
-  const isMyTurn = state && myRole && state.turn === myRole && !state.winner;
+  // Bij lokaal pass-and-play bestuurt player_a (de enige echte account)
+  // om beurten beide kanten — effectiveRole wijst naar de kant die nu aan
+  // zet is, zodat dezelfde speler op hetzelfde apparaat gewoon door kan
+  // spelen. Voor online partijen is dit gelijk aan myRole.
+  const effectiveRole = (game?.local_multiplayer && myRole === "A") ? state?.turn : myRole;
+  const isMyTurn = state && effectiveRole && state.turn === effectiveRole && !state.winner;
   const nameFor = (role) => playerNames[role] || `Speler ${role}`;
   const canStopHere = state ? bothPawnsCanReachCenter(state.board, state.pawnPos) : true;
 
@@ -309,14 +323,14 @@ export default function GamePage() {
   function selectCell(r, c) {
     if (viewingHistory || !isMyTurn || placing) return;
     const cell = state.board[r][c];
-    if (!cell || cell.owner !== myRole) return;
+    if (!cell || cell.owner !== effectiveRole) return;
     if (movedThisTurn && !(selected && selected.r === r && selected.c === c)) return;
     setSelected({ r, c, type: cell.type });
   }
 
   function handlePlaceClick(r, c) {
     if (viewingHistory || !isMyTurn || !placing) return;
-    const result = applyPlaceTool(state, myRole, r, c);
+    const result = applyPlaceTool(state, effectiveRole, r, c);
     if (!result.ok) { setError(result.error); return; }
     setError(null);
     pushState(result.state);
@@ -324,7 +338,7 @@ export default function GamePage() {
 
   function handleMove(dir) {
     if (!isMyTurn || !selected) return;
-    const result = applyMove(state, myRole, [selected.r, selected.c], dir, false);
+    const result = applyMove(state, effectiveRole, [selected.r, selected.c], dir, false);
     if (!result.ok) { setError(result.error); return; }
     setError(null);
     if (result.winningMove) { pushState(result.state, "finished"); return; }
@@ -346,7 +360,7 @@ export default function GamePage() {
       return;
     }
     setError(null);
-    const opp = myRole === "A" ? "B" : "A";
+    const opp = effectiveRole === "A" ? "B" : "A";
     pushState({ ...state, turn: opp });
   }
 
@@ -379,11 +393,11 @@ export default function GamePage() {
   function resign() {
     if (!myRole || !state || state.winner) return;
     if (!window.confirm("Weet je zeker dat je wilt opgeven?")) return;
-    const opp = myRole === "A" ? "B" : "A";
+    const opp = effectiveRole === "A" ? "B" : "A";
     const nextState = {
       ...state,
       winner: opp,
-      log: [{ key: "resign", role: myRole }, ...state.log].slice(0, 40),
+      log: [{ key: "resign", role: effectiveRole }, ...state.log].slice(0, 40),
     };
     pushState(nextState, "finished");
   }
@@ -420,6 +434,10 @@ export default function GamePage() {
   if (error && !state) return <main className="min-h-screen flex items-center justify-center">{error}</main>;
   if (!state) return null;
 
+  // Bij lokaal pass-and-play is er geen "ik" die wint of verliest — beide
+  // kanten zitten bij dezelfde speler, dus de winst wordt gewoon gevierd.
+  const wonForMe = game.local_multiplayer ? !!state.winner : myRole === state.winner;
+
   return (
     <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6">
       {showOverlay && state.winner && (
@@ -429,7 +447,7 @@ export default function GamePage() {
             display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem",
           }}
         >
-          {myRole && myRole === state.winner && <Confetti />}
+          {myRole && wonForMe && <Confetti />}
           <div
             className="panel"
             style={{
@@ -437,17 +455,19 @@ export default function GamePage() {
               position: "relative", zIndex: 61, animation: "win-title-pop 420ms ease-out both",
             }}
           >
-            {myRole && myRole === state.winner && (
+            {myRole && wonForMe && (
               <Trophy size={40} style={{ margin: "0 auto", color: "var(--accent)" }} />
             )}
             <h2 className="text-lg font-extrabold uppercase tracking-widest">
               {!myRole
                 ? "De match is beëindigd"
-                : myRole === state.winner
-                  ? "Je hebt gewonnen!"
-                  : "Je hebt verloren"}
+                : game.local_multiplayer
+                  ? `${nameFor(state.winner)} heeft gewonnen!`
+                  : myRole === state.winner
+                    ? "Je hebt gewonnen!"
+                    : "Je hebt verloren"}
             </h2>
-            {!game.vs_computer && myRole && playerRatings[myRole] != null && (
+            {!game.vs_computer && !game.local_multiplayer && myRole && playerRatings[myRole] != null && (
               <p className="text-sm mono" style={{ color: "var(--muted)" }}>
                 Nieuwe rating: {playerRatings[myRole]}
                 {ratingDelta?.[myRole] != null && (
@@ -547,14 +567,16 @@ export default function GamePage() {
             <Avatar username={nameFor(state.winner || state.turn)} size={22} />
             {state.winner
               ? `${nameFor(state.winner)} heeft gewonnen!`
-              : isMyTurn ? "Jij bent aan zet" : `${nameFor(state.turn)} is aan zet`}
+              : game.local_multiplayer
+                ? `${nameFor(state.turn)} is aan zet`
+                : isMyTurn ? "Jij bent aan zet" : `${nameFor(state.turn)} is aan zet`}
           </p>
           <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
             <div>{nameFor("A")} — hulpstukken: {state.toolsRemaining.A}</div>
             <div>{nameFor("B")} — hulpstukken: {state.toolsRemaining.B}</div>
             {game.vs_computer && <div>Computer: {DIFFICULTY_LABELS[game.difficulty] || game.difficulty}</div>}
           </div>
-          <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[myRole] <= 0}>
+          <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[effectiveRole] <= 0}>
             <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
           </button>
           {myRole && !state.winner && (
@@ -566,7 +588,7 @@ export default function GamePage() {
           </div>
         </aside>
 
-        {myRole && !game.vs_computer && (
+        {myRole && !game.vs_computer && !game.local_multiplayer && (
           <aside className="panel w-64 flex flex-col gap-3" style={{ height: 420 }}>
             <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
               <MessageCircle size={15} /> Chat

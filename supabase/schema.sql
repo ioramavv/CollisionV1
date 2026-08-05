@@ -92,6 +92,10 @@ create table if not exists games (
   -- Moeilijkheidsgraad van de computerspeler, alleen relevant als
   -- vs_computer waar is. Zie lib/collisionAI.js voor de betekenis.
   difficulty text not null default 'medium' check (difficulty in ('easy', 'medium', 'hard', 'expert')),
+  -- "Pass-and-play" op één apparaat: player_a bestuurt om beurten beide
+  -- kanten (net als bij vs_computer blijft player_b leeg). De namen van
+  -- beide kanten staan in state.localNames, niet in een aparte kolom.
+  local_multiplayer boolean not null default false,
   status text not null default 'waiting', -- waiting | active | finished
   -- Wordt precies één keer op waar gezet zodra apply_game_rating() de
   -- Elo-uitslag van deze partij heeft verwerkt, zodat dat nooit dubbel kan.
@@ -108,6 +112,7 @@ alter table games add column if not exists difficulty text not null default 'med
 alter table games drop constraint if exists games_difficulty_check;
 alter table games add constraint games_difficulty_check check (difficulty in ('easy', 'medium', 'hard', 'expert'));
 alter table games add column if not exists rating_applied boolean not null default false;
+alter table games add column if not exists local_multiplayer boolean not null default false;
 
 select _drop_all_policies('games', 'SELECT');
 create policy "Zichtbaarheid van partijen"
