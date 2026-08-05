@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug } from "lucide-react";
+import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -16,7 +16,9 @@ export default function LobbyPage() {
   const [myGames, setMyGames] = useState([]);
   const [archivedGames, setArchivedGames] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newGameStep, setNewGameStep] = useState(null); // null | "choose" | "invite" | "computer"
+  const [newGameStep, setNewGameStep] = useState(null); // null | "choose" | "invite" | "computer" | "local"
+  const [localNameA, setLocalNameA] = useState("");
+  const [localNameB, setLocalNameB] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -80,7 +82,7 @@ export default function LobbyPage() {
 
     const { data: mine } = await supabase
       .from("games")
-      .select("id, status, player_a, player_b, invited_id, vs_computer, difficulty, created_at, turn:state->>turn, a:player_a(username, rating), b:player_b(username, rating)")
+      .select("id, status, player_a, player_b, invited_id, vs_computer, difficulty, local_multiplayer, local_name_b:state->localNames->>B, created_at, turn:state->>turn, a:player_a(username, rating), b:player_b(username, rating)")
       .or(`player_a.eq.${userId},player_b.eq.${userId}`)
       .neq("status", "finished")
       .order("created_at", { ascending: false });
@@ -100,7 +102,7 @@ export default function LobbyPage() {
     const gameIds = entries.map((e) => e.game_id);
     const { data: games } = await supabase
       .from("games")
-      .select("id, player_a, player_b, vs_computer, state, a:player_a(username, rating), b:player_b(username, rating)")
+      .select("id, player_a, player_b, vs_computer, local_multiplayer, state, a:player_a(username, rating), b:player_b(username, rating)")
       .in("id", gameIds);
     const byId = Object.fromEntries((games || []).map((g) => [g.id, g]));
 
@@ -125,10 +127,29 @@ export default function LobbyPage() {
     if (!error) router.push(`/game/${data.id}`);
   }
 
+  // "Pass-and-play" op één apparaat: player_b blijft leeg (net als bij
+  // vs_computer) — jouw account bestuurt om beurten beide kanten. De namen
+  // van beide kanten leven in state.localNames i.p.v. een aparte kolom.
+  async function createLocalGame() {
+    const state = freshState();
+    state.localNames = {
+      A: localNameA.trim() || "Speler 1",
+      B: localNameB.trim() || "Speler 2",
+    };
+    const { data, error } = await supabase
+      .from("games")
+      .insert({ player_a: user.id, status: "active", local_multiplayer: true, state })
+      .select()
+      .single();
+    if (!error) router.push(`/game/${data.id}`);
+  }
+
   function closeNewGameModal() {
     setNewGameStep(null);
     setSearchQuery("");
     setSearchResults([]);
+    setLocalNameA("");
+    setLocalNameB("");
   }
 
   async function searchUsers(e) {
@@ -205,6 +226,41 @@ export default function LobbyPage() {
                 </button>
                 <button className="btn" onClick={() => setNewGameStep("computer")}>
                   <Cpu size={15} /> Tegen de computer
+                </button>
+                <button className="btn" onClick={() => setNewGameStep("local")}>
+                  <Smartphone size={15} /> Lokaal (1 apparaat)
+                </button>
+              </div>
+            )}
+
+            {newGameStep === "local" && (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                  Speel om beurten tegen elkaar op dit toestel — handig als je samen op de bank zit. Niks wordt gedeeld met een ander account.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs mono" style={{ color: "var(--muted)" }}>Naam speler 1 (bruin)</label>
+                  <input
+                    type="text"
+                    value={localNameA}
+                    onChange={(e) => setLocalNameA(e.target.value)}
+                    placeholder="Speler 1"
+                    className="input"
+                    maxLength={30}
+                    autoFocus
+                  />
+                  <label className="text-xs mono" style={{ color: "var(--muted)" }}>Naam speler 2 (wit)</label>
+                  <input
+                    type="text"
+                    value={localNameB}
+                    onChange={(e) => setLocalNameB(e.target.value)}
+                    placeholder="Speler 2"
+                    className="input"
+                    maxLength={30}
+                  />
+                </div>
+                <button className="btn btn-solid" onClick={createLocalGame}>
+                  <Smartphone size={15} /> Start lokale partij
                 </button>
               </div>
             )}
@@ -306,8 +362,12 @@ export default function LobbyPage() {
           </h2>
           <ul className="flex flex-col gap-2">
             {myGames.map((g) => {
-              const opponentName = g.vs_computer ? "Computer" : (g.player_a === user.id ? g.b?.username : g.a?.username);
-              const opponentRating = g.vs_computer ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
+              const opponentName = g.vs_computer
+                ? "Computer"
+                : g.local_multiplayer
+                  ? (g.local_name_b || "Speler 2")
+                  : (g.player_a === user.id ? g.b?.username : g.a?.username);
+              const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
               const canDelete = g.status === "waiting" && g.player_a === user.id;
               const myRoleInGame = g.player_a === user.id ? "A" : "B";
               const isMyTurn = g.status === "active" && g.turn === myRoleInGame;
@@ -326,6 +386,8 @@ export default function LobbyPage() {
                     </Badge>
                     {g.vs_computer ? (
                       <Badge tone="warning"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"} (bèta)</Badge>
+                    ) : g.local_multiplayer ? (
+                      <Badge tone="neutral"><Smartphone size={12} /> lokaal</Badge>
                     ) : (
                       <Badge tone={g.invited_id ? "closed" : "open"}>
                         {g.invited_id ? "gesloten match" : "open match"}
@@ -368,17 +430,24 @@ export default function LobbyPage() {
           <ul className="flex flex-col gap-2">
             {archivedGames.map((e) => {
               const g = e.game;
-              const opponentName = g.vs_computer ? "Computer" : (g.player_a === user.id ? g.b?.username : g.a?.username);
-              const opponentRating = g.vs_computer ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
+              const opponentName = g.vs_computer
+                ? "Computer"
+                : g.local_multiplayer
+                  ? (g.state?.localNames?.B || "Speler 2")
+                  : (g.player_a === user.id ? g.b?.username : g.a?.username);
+              const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
               const myRole = g.player_a === user.id ? "A" : "B";
               const won = g.state?.winner === myRole;
+              const winnerName = g.local_multiplayer
+                ? (g.state?.localNames?.[g.state?.winner] || `Speler ${g.state?.winner}`)
+                : null;
               return (
                 <li key={e.id} className="flex items-center justify-between text-sm">
                   <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                     <Avatar username={opponentName} />
                     Partij met {opponentName || "onbekend"} <Rating value={opponentRating} />
-                    <Badge tone={won ? "active" : "closed"}>
-                      {won ? <Trophy size={12} /> : <Skull size={12} />} {won ? "gewonnen" : "verloren"}
+                    <Badge tone={g.local_multiplayer || won ? "active" : "closed"}>
+                      {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? `${winnerName} won` : (won ? "gewonnen" : "verloren")}
                     </Badge>
                   </span>
                   <a className="btn" href={`/game/${g.id}`}><FolderOpen size={14} /> Bekijk</a>
