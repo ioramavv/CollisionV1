@@ -194,6 +194,26 @@ body {
   gap: 4px;
 }
 
+/* Meldingsbolletje op een navigatie-icoon (bv. openstaande vriendverzoeken) —
+   zelfde idee als een ongelezen-badge op een app-icoontje op je telefoon. */
+.notif-dot {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--maple);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  border: 1.5px solid var(--panel);
+  pointer-events: none;
+}
+
 .sidebar-link {
   display: flex;
   align-items: center;

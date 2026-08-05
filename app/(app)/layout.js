@@ -23,6 +23,7 @@ export default function AppLayout({ children }) {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(0);
   // Sluit het mobiele menu automatisch zodra er (client-side) genavigeerd
   // wordt, zodat het niet openstaat blijft na het kiezen van een link.
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -34,6 +35,16 @@ export default function AppLayout({ children }) {
   useEffect(() => {
     let active = true;
     let channel;
+    let friendsChannel;
+
+    async function refreshPendingRequests(userId) {
+      const { count } = await supabase
+        .from("friendships")
+        .select("id", { count: "exact", head: true })
+        .eq("addressee_id", userId)
+        .eq("status", "pending");
+      if (active) setPendingRequests(count || 0);
+    }
 
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -42,6 +53,19 @@ export default function AppLayout({ children }) {
       if (!active) return;
       setUser(user);
       setProfile(data);
+
+      refreshPendingRequests(user.id);
+
+      // Meldingsbolletje bij "Vrienden" — live bijgewerkt zodra er een
+      // vriendverzoek binnenkomt, geaccepteerd of ingetrokken wordt.
+      friendsChannel = supabase
+        .channel(`friend-requests-${user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "friendships", filter: `addressee_id=eq.${user.id}` },
+          () => refreshPendingRequests(user.id)
+        )
+        .subscribe();
 
       // Presence: elke ingelogde gebruiker met een app-pagina open telt als
       // "online". Puur socket-based, geen database-schrijfacties nodig.
@@ -56,6 +80,7 @@ export default function AppLayout({ children }) {
     return () => {
       active = false;
       if (channel) supabase.removeChannel(channel);
+      if (friendsChannel) supabase.removeChannel(friendsChannel);
     };
   }, []);
 
@@ -97,8 +122,12 @@ export default function AppLayout({ children }) {
             className="btn btn-icon sidebar-toggle"
             onClick={() => setMobileMenuOpen((o) => !o)}
             aria-label={mobileMenuOpen ? "Menu sluiten" : "Menu openen"}
+            style={{ position: "relative" }}
           >
             {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            {!mobileMenuOpen && pendingRequests > 0 && (
+              <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+            )}
           </button>
         </div>
         <div className="sidebar-body">
@@ -109,7 +138,12 @@ export default function AppLayout({ children }) {
                   href={link.href}
                   className={`sidebar-link${pathname.startsWith(link.href) ? " active" : ""}`}
                 >
-                  <link.icon size={17} strokeWidth={2} />
+                  <span style={{ position: "relative", display: "inline-flex" }}>
+                    <link.icon size={17} strokeWidth={2} />
+                    {link.href === "/friends" && pendingRequests > 0 && (
+                      <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+                    )}
+                  </span>
                   {link.label}
                 </Link>
               </li>
