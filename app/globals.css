@@ -23,6 +23,9 @@ body {
   color: var(--text);
   font-family: "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
+  /* Voorkomt een horizontale scrollbar-flits tijdens de schuivende
+     pagina-overgang hieronder. */
+  overflow-x: hidden;
   background-color: var(--bg);
   /* Zeer subtiel geblokt patroon — een echo van het speelbord op de
      achtergrond van elke pagina. Gebruikt de bordkleur (--board-dark) op
@@ -365,19 +368,25 @@ body {
   }
 }
 
-/* Pagina-overgang */
+/* Pagina-overgang: voelt als het schuiven van een spelstuk over het bord —
+   komt van opzij binnenschuiven en veert er licht overheen tot rust, net
+   als een stuiter in het spel zelf. */
 .page-transition {
-  animation: page-enter 320ms ease-out both;
+  animation: page-enter 560ms cubic-bezier(0.22, 0.85, 0.32, 1) both;
 }
 
 @keyframes page-enter {
-  from {
+  0% {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateX(80px);
   }
-  to {
+  60% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
