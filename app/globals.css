@@ -180,44 +180,56 @@ body {
   z-index: 6;
 }
 
-/* Schuifbalk voor het terugkijken van de partijgeschiedenis — vervangt de
-   stap-knoppen + tekstregel van eerst, neemt veel minder ruimte in. */
-.range-slider {
+/* Compacte, schaaknotatie-achtige partijgeschiedenis (1. 3,4 3,7  2. ...)
+   i.p.v. een schuifbalk of een apart tekstvlak met volledige
+   zetbeschrijvingen. Scrollt horizontaal binnen zichzelf bij lange
+   partijen, i.p.v. de pagina te verbreden of in te wikkelen. */
+.move-strip {
   flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
   min-width: 0;
-  border-radius: 999px;
-  background: var(--panel-line);
-  outline: none;
-  cursor: pointer;
+  overflow-x: auto;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px;
 }
 
-.range-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--maple);
-  cursor: pointer;
+.move-strip-round {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.range-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--maple);
-  cursor: pointer;
+.move-strip-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-right: 2px;
 }
 
-.range-slider::-moz-range-track {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--panel-line);
+.move-strip-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.move-strip-chip:hover {
+  background: var(--accent-dim);
+}
+
+.move-strip-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .panel {

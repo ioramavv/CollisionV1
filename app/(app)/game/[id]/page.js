@@ -76,6 +76,7 @@ export default function GamePage() {
   const [lastSeenCount, setLastSeenCount] = useState(0); // messages.length bij het laatst openen van de chat
   const prevBoardRef = useRef(null);
   const chatEndRef = useRef(null);
+  const activeChipRef = useRef(null);
   const computerTurnRef = useRef(false);
   const stateRef = useRef(null);
   const initialRatingsRef = useRef({ A: null, B: null });
@@ -201,24 +202,31 @@ export default function GamePage() {
   const nameFor = (role) => playerNames[role] || `Speler ${role}`;
   const canStopHere = state ? bothPawnsCanReachCenter(state.board, state.pawnPos) : true;
 
-  // Log-items zijn gestructureerd opgeslagen (niet als kant-en-klare tekst)
-  // zodat ze hier met de actuele spelernamen getoond kunnen worden. Oudere,
-  // al opgeslagen partijen kunnen nog platte strings bevatten — die tonen
-  // we ongewijzigd.
-  function formatLogEntry(entry) {
-    if (typeof entry === "string") return entry;
-    switch (entry.key) {
-      case "start": return `Nieuw spel — ${nameFor("A")} begint (linksboven).`;
-      case "place": return `${nameFor(entry.role)} plaatst een hulpstuk op (${entry.r},${entry.c}).`;
-      case "move": return `${nameFor(entry.role)} beweegt ${entry.isPawn ? "de pion" : "een hulpstuk"} naar (${entry.r},${entry.c}).`;
-      case "resign": return `${nameFor(entry.role)} heeft opgegeven.`;
-      default: return "";
-    }
-  }
-
   const history = state?.history || [];
   const viewingHistory = historyIndex !== null;
   const displayBoard = viewingHistory ? reconstructBoard(history, historyIndex) : state?.board;
+
+  // Groepeert de vlakke geschiedenis in "beurten" (opeenvolgende stuiters
+  // van dezelfde speler binnen één beurt tellen als één), en die weer per
+  // twee (A + B) in "ronden" — net als schaaknotatie (1. e4 e5), maar dan
+  // met coördinaten i.p.v. algebraïsche notatie. Vervangt zowel de losse
+  // schuifbalk als het aparte tekstvlak met zetbeschrijvingen door één
+  // compacte, horizontaal scrollbare strip.
+  const turns = [];
+  history.forEach((entry, i) => {
+    const last = turns[turns.length - 1];
+    if (last && last.owner === entry.owner) {
+      last.endIndex = i;
+      last.lastEntry = entry;
+    } else {
+      turns.push({ owner: entry.owner, endIndex: i, lastEntry: entry });
+    }
+  });
+  const rounds = [];
+  for (let i = 0; i < turns.length; i += 2) {
+    rounds.push([turns[i], turns[i + 1] || null]);
+  }
+  const activeHistoryIndex = viewingHistory ? historyIndex : history.length - 1;
 
   function stepHistoryBack() {
     setHistoryIndex((i) => {
@@ -437,6 +445,10 @@ export default function GamePage() {
     chatEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
+  useEffect(() => {
+    activeChipRef.current?.scrollIntoView({ inline: "end", block: "nearest" });
+  }, [historyIndex, history.length]);
+
   function openChat() {
     setLastSeenCount(messages.length);
     setChatOpen(true);
@@ -639,31 +651,36 @@ export default function GamePage() {
             </div>
           )}
 
-          {/* Partijgeschiedenis als horizontale schuifbalk i.p.v. losse
-              knoppen + tekstregel — neemt veel minder ruimte in. Helemaal
-              naar rechts slepen = terug naar de live stand. */}
-          {history.length > 0 && (
-            <div className="flex items-center gap-2" style={{ width: "min(88vw, 484px)" }}>
+          {/* Partijgeschiedenis als compacte, schaaknotatie-achtige strip
+              (1. 3,4 3,7  2. ...) i.p.v. een losse schuifbalk of een apart
+              tekstvlak met volledige zetbeschrijvingen — neemt veel minder
+              ruimte in en toont meteen waar je in de partij zit. */}
+          {rounds.length > 0 && (
+            <div className="flex items-center gap-1" style={{ width: "min(88vw, 484px)" }}>
               <button className="btn btn-icon" onClick={stepHistoryBack} disabled={historyIndex === -1}><ChevronLeft size={16} /></button>
-              <input
-                type="range"
-                className="range-slider"
-                min={0}
-                max={history.length}
-                value={viewingHistory ? historyIndex + 1 : history.length}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setHistoryIndex(v >= history.length ? null : v - 1);
-                }}
-                aria-label="Partijgeschiedenis"
-              />
+              <div className="move-strip">
+                {rounds.map(([a, b], i) => (
+                  <span key={i} className="move-strip-round">
+                    <span className="move-strip-num">{i + 1}.</span>
+                    {[a, b].map((turn, j) => {
+                      if (!turn) return null;
+                      const isActive = turn.endIndex === activeHistoryIndex;
+                      return (
+                        <button
+                          key={j}
+                          ref={isActive ? activeChipRef : undefined}
+                          className={`move-strip-chip${isActive ? " active" : ""}`}
+                          onClick={() => setHistoryIndex(turn.endIndex >= history.length - 1 ? null : turn.endIndex)}
+                          title={turn.lastEntry.type === "tool" ? "Hulpstuk" : "Pion"}
+                        >
+                          {turn.lastEntry.type === "tool" && "◆"}{turn.lastEntry.to[0]},{turn.lastEntry.to[1]}
+                        </button>
+                      );
+                    })}
+                  </span>
+                ))}
+              </div>
               <button className="btn btn-icon" onClick={stepHistoryForward} disabled={!viewingHistory}><ChevronRight size={16} /></button>
-              <span
-                className="text-xs mono"
-                style={{ color: viewingHistory ? "var(--accent)" : "var(--muted)", flexShrink: 0, minWidth: 40, textAlign: "right" }}
-              >
-                {viewingHistory ? `${historyIndex + 1}/${history.length}` : "Nu"}
-              </span>
             </div>
           )}
 
@@ -709,9 +726,6 @@ export default function GamePage() {
             </button>
           )}
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
-          <div className="text-xs mono flex flex-col gap-1 max-h-48 overflow-y-auto border-t pt-2" style={{ borderColor: "var(--panel-line)", color: "var(--muted)" }}>
-            {state.log.map((entry, i) => <div key={i}>{formatLogEntry(entry)}</div>)}
-          </div>
         </aside>
       </div>
 
