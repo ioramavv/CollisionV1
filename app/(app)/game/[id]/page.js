@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
-  ChevronLeft, ChevronRight, RotateCcw, Eye, MessageCircle, Send, TriangleAlert, Check, X,
+  ChevronLeft, ChevronRight, Eye, MessageCircle, Send, TriangleAlert, Check, X,
 } from "lucide-react";
 import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter, DIRS } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -72,6 +72,8 @@ export default function GamePage() {
   const [chatText, setChatText] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
   const [chatError, setChatError] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [lastSeenCount, setLastSeenCount] = useState(0); // messages.length bij het laatst openen van de chat
   const prevBoardRef = useRef(null);
   const chatEndRef = useRef(null);
   const computerTurnRef = useRef(false);
@@ -147,6 +149,7 @@ export default function GamePage() {
           .eq("game_id", id)
           .order("created_at", { ascending: true });
         setMessages(msgs || []);
+        setLastSeenCount((msgs || []).length);
       }
 
       channel = supabase
@@ -434,6 +437,11 @@ export default function GamePage() {
     chatEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
+  function openChat() {
+    setLastSeenCount(messages.length);
+    setChatOpen(true);
+  }
+
   async function sendMessage(e) {
     e.preventDefault();
     const body = chatText.trim();
@@ -478,6 +486,8 @@ export default function GamePage() {
         })
         .filter(Boolean)
     : [];
+
+  const unreadCount = Math.max(0, messages.length - lastSeenCount);
 
   return (
     <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6 game-page-main">
@@ -549,22 +559,29 @@ export default function GamePage() {
 
       <div className="flex flex-col md:flex-row gap-6 items-start">
         <div className="flex flex-col items-center gap-4">
-          <Board
-            board={displayBoard}
-            selected={!viewingHistory ? selected : null}
-            slideAnim={!viewingHistory ? slideAnim : null}
-            interactive={isMyTurn && !viewingHistory}
-            onCellClick={(r, c) => {
-              if (placing) { handlePlaceCellTap(r, c); return; }
-              const target = selected && moveTargets.find((t) => t.r === r && t.c === c);
-              if (target) { handleMove(target.dir); return; }
-              selectCell(r, c);
-            }}
-            moveTargets={moveTargets}
-            pendingTool={pendingPlacement ? { r: pendingPlacement.r, c: pendingPlacement.c, owner: effectiveRole } : null}
-            labelTopLeft={nameFor("A")}
-            labelBottomRight={nameFor("B")}
-          />
+          <div style={{ position: "relative" }}>
+            <Board
+              board={displayBoard}
+              selected={!viewingHistory ? selected : null}
+              slideAnim={!viewingHistory ? slideAnim : null}
+              interactive={isMyTurn && !viewingHistory}
+              onCellClick={(r, c) => {
+                if (placing) { handlePlaceCellTap(r, c); return; }
+                const target = selected && moveTargets.find((t) => t.r === r && t.c === c);
+                if (target) { handleMove(target.dir); return; }
+                selectCell(r, c);
+              }}
+              moveTargets={moveTargets}
+              pendingTool={pendingPlacement ? { r: pendingPlacement.r, c: pendingPlacement.c, owner: effectiveRole } : null}
+              labelTopLeft={nameFor("A")}
+              labelBottomRight={nameFor("B")}
+            />
+            {myRole && !state.winner && (
+              <button className="btn btn-icon btn-danger board-resign-btn" onClick={resign} title="Opgeven">
+                <Flag size={15} />
+              </button>
+            )}
+          </div>
 
           {!viewingHistory && selected && isMyTurn && (
             <div className="grid grid-cols-3 gap-1 hide-mobile">
@@ -622,26 +639,39 @@ export default function GamePage() {
             </div>
           )}
 
+          {/* Partijgeschiedenis als horizontale schuifbalk i.p.v. losse
+              knoppen + tekstregel — neemt veel minder ruimte in. Helemaal
+              naar rechts slepen = terug naar de live stand. */}
           {history.length > 0 && (
-            <div className="flex flex-col items-center gap-1">
-              {viewingHistory && (
-                <p className="text-xs" style={{ color: "var(--accent)" }}>
-                  Je bekijkt een eerdere situatie — puur ter inzage.
-                </p>
-              )}
-              <div className="flex items-center gap-2">
-                <button className="btn btn-icon" onClick={stepHistoryBack} disabled={historyIndex === -1}><ChevronLeft size={16} /></button>
-                <span className="text-xs mono" style={{ color: "var(--muted)" }}>
-                  {viewingHistory ? `Zet ${historyIndex + 1} / ${history.length}` : "Nu"}
-                </span>
-                <button className="btn btn-icon" onClick={stepHistoryForward} disabled={!viewingHistory}><ChevronRight size={16} /></button>
-                {viewingHistory && (
-                  <button className="btn btn-solid" onClick={() => setHistoryIndex(null)}>
-                    <RotateCcw size={14} /> Terug naar nu
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center gap-2" style={{ width: "min(88vw, 484px)" }}>
+              <button className="btn btn-icon" onClick={stepHistoryBack} disabled={historyIndex === -1}><ChevronLeft size={16} /></button>
+              <input
+                type="range"
+                className="range-slider"
+                min={0}
+                max={history.length}
+                value={viewingHistory ? historyIndex + 1 : history.length}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setHistoryIndex(v >= history.length ? null : v - 1);
+                }}
+                aria-label="Partijgeschiedenis"
+              />
+              <button className="btn btn-icon" onClick={stepHistoryForward} disabled={!viewingHistory}><ChevronRight size={16} /></button>
+              <span
+                className="text-xs mono"
+                style={{ color: viewingHistory ? "var(--accent)" : "var(--muted)", flexShrink: 0, minWidth: 40, textAlign: "right" }}
+              >
+                {viewingHistory ? `${historyIndex + 1}/${history.length}` : "Nu"}
+              </span>
             </div>
+          )}
+
+          {myRole && !game.vs_computer && !game.local_multiplayer && (
+            <button className="btn" onClick={openChat} style={{ position: "relative" }}>
+              <MessageCircle size={15} /> Chat
+              {unreadCount > 0 && <span className="notif-dot">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+            </button>
           )}
         </div>
 
@@ -678,20 +708,29 @@ export default function GamePage() {
               <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
             </button>
           )}
-          {myRole && !state.winner && (
-            <button className="btn btn-danger" onClick={resign}><Flag size={15} /> Opgeven</button>
-          )}
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
           <div className="text-xs mono flex flex-col gap-1 max-h-48 overflow-y-auto border-t pt-2" style={{ borderColor: "var(--panel-line)", color: "var(--muted)" }}>
             {state.log.map((entry, i) => <div key={i}>{formatLogEntry(entry)}</div>)}
           </div>
         </aside>
+      </div>
 
-        {myRole && !game.vs_computer && !game.local_multiplayer && (
-          <aside className="panel w-64 flex flex-col gap-3" style={{ height: 420 }}>
-            <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
-              <MessageCircle size={15} /> Chat
-            </h2>
+      {/* Chat als knop + overlay i.p.v. een altijd-zichtbaar zijpaneel — dat
+          paneel was op mobiel niet goed bereikbaar zonder te scrollen. */}
+      {chatOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem",
+          }}
+        >
+          <div className="panel" style={{ maxWidth: 420, width: "100%", height: "min(80vh, 520px)", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+                <MessageCircle size={15} /> Chat
+              </h2>
+              <button className="btn btn-icon" onClick={() => setChatOpen(false)}><X size={16} /></button>
+            </div>
             <div className="flex flex-col gap-3 overflow-y-auto flex-1">
               {messages.length === 0 && (
                 <p className="text-xs" style={{ color: "var(--muted)" }}>Nog geen berichten — zeg hallo!</p>
@@ -716,14 +755,15 @@ export default function GamePage() {
                 onChange={(e) => setChatText(e.target.value)}
                 placeholder="Typ een bericht..."
                 maxLength={500}
+                autoFocus
               />
               <button className="btn btn-icon" type="submit" disabled={sendingChat || !chatText.trim()}>
                 <Send size={15} />
               </button>
             </form>
-          </aside>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

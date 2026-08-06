@@ -170,6 +170,56 @@ body {
   border-color: var(--accent);
 }
 
+/* Opgeven-knop rechtsboven het bord, in dezelfde gereserveerde
+   naamplaat-ruimte als de linksboven-naamplaat (zie LABEL_SPACE in
+   lib/Board.js) — staat dus nooit over het bord zelf heen. */
+.board-resign-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 6;
+}
+
+/* Schuifbalk voor het terugkijken van de partijgeschiedenis — vervangt de
+   stap-knoppen + tekstregel van eerst, neemt veel minder ruimte in. */
+.range-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  min-width: 0;
+  border-radius: 999px;
+  background: var(--panel-line);
+  outline: none;
+  cursor: pointer;
+}
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--maple);
+  cursor: pointer;
+}
+
+.range-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--maple);
+  cursor: pointer;
+}
+
+.range-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--panel-line);
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-line);
