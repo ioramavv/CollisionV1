@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
-  ChevronLeft, ChevronRight, Eye, MessageCircle, Send, TriangleAlert, Check, X,
+  ChevronLeft, ChevronRight, Eye, MessageCircle, Send, TriangleAlert, Check, X, RotateCcw,
 } from "lucide-react";
 import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter, DIRS } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -79,6 +79,12 @@ export default function GamePage() {
   const activeChipRef = useRef(null);
   const computerTurnRef = useRef(false);
   const stateRef = useRef(null);
+  // Laatste door de server bevestigde staat — het startpunt van mijn
+  // huidige beurt. Zolang ik nog geen zet geforceerd hoefde af te ronden
+  // (dood spoor) of expliciet STOP/bevestig heb ingedrukt, staan mijn
+  // tussentijdse zetten alleen lokaal in `game.state` (zie handleMove) en
+  // kan ik met cancelTurn() altijd weer hiernaartoe terug.
+  const committedStateRef = useRef(null);
   const initialRatingsRef = useRef({ A: null, B: null });
   const ratingAppliedRef = useRef(false);
 
@@ -124,6 +130,7 @@ export default function GamePage() {
         .single();
       if (error || !data) { setError("Partij niet gevonden."); setLoading(false); return; }
       setGame(data);
+      committedStateRef.current = data.state;
       if (data.local_multiplayer) {
         setPlayerNames({
           A: data.state?.localNames?.A || "Speler 1",
@@ -159,6 +166,7 @@ export default function GamePage() {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
           (payload) => {
+            committedStateRef.current = payload.new?.state;
             setGame((prev) => {
               if (!prev?.state?.winner && payload.new?.state?.winner) {
                 setShowOverlay(true);
@@ -402,6 +410,22 @@ export default function GamePage() {
     pushState({ ...state, turn: opp });
   }
 
+  // Zolang er nog geen enkele zet van deze beurt naar de server gepusht is
+  // (dat gebeurt alleen bij een gedwongen stop, wat de beurt meteen ook
+  // beëindigt — zie handleMove), leeft de hele beurt alleen lokaal. Dit
+  // gooit die lokale tussenstand weg en zet alles terug naar de laatst
+  // bevestigde staat, zodat je vrij opnieuw kunt beginnen: een ander stuk
+  // kiezen, of alsnog een hulpstuk plaatsen in plaats van bewegen.
+  function cancelTurn() {
+    if (!committedStateRef.current) return;
+    setGame((g) => (g ? { ...g, state: committedStateRef.current } : g));
+    setSelected(null);
+    setMovedThisTurn(false);
+    setPlacing(false);
+    setPendingPlacement(null);
+    setError(null);
+  }
+
   function togglePlacing() {
     if (movedThisTurn) return;
     setPlacing((p) => !p);
@@ -596,16 +620,24 @@ export default function GamePage() {
           </div>
 
           {!viewingHistory && selected && isMyTurn && (
-            <div className="grid grid-cols-3 gap-1 hide-mobile">
-              <div />
-              <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
-              <div />
-              <DirBtn icon={ArrowLeft} onClick={() => handleMove("left")} />
-              <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}><Square size={14} /> STOP</button>
-              <DirBtn icon={ArrowRight} onClick={() => handleMove("right")} />
-              <div />
-              <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />
-              <div />
+            <div className="flex flex-col items-center gap-1 hide-mobile">
+              <div className="grid grid-cols-3 gap-1">
+                <div />
+                <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
+                <div />
+                <DirBtn icon={ArrowLeft} onClick={() => handleMove("left")} />
+                <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}><Square size={14} /> STOP</button>
+                <DirBtn icon={ArrowRight} onClick={() => handleMove("right")} />
+                <div />
+                <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />
+                <div />
+              </div>
+              {/* Zolang niks van deze beurt nog naar de server gepusht is,
+                  mag je gewoon van gedachten veranderen — een ander stuk
+                  kiezen, of alsnog een hulpstuk plaatsen. */}
+              {movedThisTurn && (
+                <button className="btn" onClick={cancelTurn}><RotateCcw size={14} /> Annuleer beurt</button>
+              )}
             </div>
           )}
 
@@ -632,16 +664,22 @@ export default function GamePage() {
               ) : selected ? (
                 <>
                   <p className="text-xs" style={{ color: "var(--muted)" }}>
-                    {moveTargets.length > 0 ? "Tik op een gemarkeerd vakje om te bewegen." : "Geen zet mogelijk — probeer STOP of een ander stuk."}
+                    {moveTargets.length > 0 ? "Tik op een gemarkeerd vakje om te bewegen." : "Geen zet meer mogelijk — annuleer en probeer iets anders, of STOP."}
                   </p>
-                  <button
-                    className="btn"
-                    onClick={endTurn}
-                    disabled={!movedThisTurn || !canStopHere}
-                    title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}
-                  >
-                    <Square size={14} /> STOP
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {movedThisTurn && (
+                      <button className="btn" style={{ flex: 1 }} onClick={cancelTurn}><RotateCcw size={14} /> Annuleer</button>
+                    )}
+                    <button
+                      className="btn"
+                      style={{ flex: 1 }}
+                      onClick={endTurn}
+                      disabled={!movedThisTurn || !canStopHere}
+                      title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}
+                    >
+                      <Square size={14} /> STOP
+                    </button>
+                  </div>
                 </>
               ) : (
                 <button className="btn" onClick={togglePlacing} disabled={movedThisTurn || state.toolsRemaining[effectiveRole] <= 0}>
