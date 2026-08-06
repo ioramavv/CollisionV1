@@ -4,9 +4,9 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, Flag, Archive,
-  ChevronLeft, ChevronRight, RotateCcw, Eye, MessageCircle, Send, TriangleAlert,
+  ChevronLeft, ChevronRight, RotateCcw, Eye, MessageCircle, Send, TriangleAlert, Check, X,
 } from "lucide-react";
-import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
+import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter, DIRS } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { Avatar, Rating, DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
@@ -55,6 +55,7 @@ export default function GamePage() {
   const [myRole, setMyRole] = useState(null); // 'A' | 'B'
   const [selected, setSelected] = useState(null); // {r,c}
   const [placing, setPlacing] = useState(false);
+  const [pendingPlacement, setPendingPlacement] = useState(null); // {r,c} — geselecteerd, nog niet bevestigd
   const [movedThisTurn, setMovedThisTurn] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -164,6 +165,7 @@ export default function GamePage() {
             setSelected(null);
             setMovedThisTurn(false);
             setPlacing(false);
+            setPendingPlacement(null);
           }
         )
         .on(
@@ -328,12 +330,37 @@ export default function GamePage() {
     setSelected({ r, c, type: cell.type });
   }
 
-  function handlePlaceClick(r, c) {
+  // Tikken op een vakje tijdens het plaatsen zet alleen een preview neer
+  // (pendingPlacement) — er wordt pas echt geplaatst (en de beurt
+  // doorgegeven) als de speler dat expliciet bevestigt. Opnieuw tikken op
+  // een ander geldig vakje verplaatst gewoon de preview.
+  function handlePlaceCellTap(r, c) {
     if (viewingHistory || !isMyTurn || !placing) return;
     const result = applyPlaceTool(state, effectiveRole, r, c);
     if (!result.ok) { setError(result.error); return; }
     setError(null);
+    setPendingPlacement({ r, c });
+  }
+
+  function confirmPlacement() {
+    if (!pendingPlacement || !state) return;
+    const result = applyPlaceTool(state, effectiveRole, pendingPlacement.r, pendingPlacement.c);
+    if (!result.ok) {
+      // Zeldzaam: staat kan tussen preview en bevestiging gewijzigd zijn.
+      setError(result.error);
+      setPendingPlacement(null);
+      return;
+    }
+    setError(null);
+    setPendingPlacement(null);
+    setPlacing(false);
     pushState(result.state);
+  }
+
+  function cancelPlacement() {
+    setPlacing(false);
+    setPendingPlacement(null);
+    setError(null);
   }
 
   function handleMove(dir) {
@@ -368,6 +395,7 @@ export default function GamePage() {
     if (movedThisTurn) return;
     setPlacing((p) => !p);
     setSelected(null);
+    setPendingPlacement(null);
   }
 
   // Pijltjestoetsen bewegen het geselecteerde stuk, Enter bevestigt (zelfde
@@ -438,8 +466,21 @@ export default function GamePage() {
   // kanten zitten bij dezelfde speler, dus de winst wordt gewoon gevierd.
   const wonForMe = game.local_multiplayer ? !!state.winner : myRole === state.winner;
 
+  // Cellen die het geselecteerde stuk in één richting kan bereiken —
+  // gemarkeerd op het bord zodat je er ook rechtstreeks op kunt tikken,
+  // als alternatief voor de pijltjesknoppen (vooral fijn op mobiel, waar
+  // die knoppen ruimte kosten die er niet altijd is).
+  const moveTargets = (!viewingHistory && isMyTurn && !placing && selected)
+    ? Object.keys(DIRS)
+        .map((dir) => {
+          const result = applyMove(state, effectiveRole, [selected.r, selected.c], dir, false);
+          return result.ok ? { r: result.dest[0], c: result.dest[1], dir } : null;
+        })
+        .filter(Boolean)
+    : [];
+
   return (
-    <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6">
+    <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6 game-page-main">
       {showOverlay && state.winner && (
         <div
           style={{
@@ -513,13 +554,20 @@ export default function GamePage() {
             selected={!viewingHistory ? selected : null}
             slideAnim={!viewingHistory ? slideAnim : null}
             interactive={isMyTurn && !viewingHistory}
-            onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
+            onCellClick={(r, c) => {
+              if (placing) { handlePlaceCellTap(r, c); return; }
+              const target = selected && moveTargets.find((t) => t.r === r && t.c === c);
+              if (target) { handleMove(target.dir); return; }
+              selectCell(r, c);
+            }}
+            moveTargets={moveTargets}
+            pendingTool={pendingPlacement ? { r: pendingPlacement.r, c: pendingPlacement.c, owner: effectiveRole } : null}
             labelTopLeft={nameFor("A")}
             labelBottomRight={nameFor("B")}
           />
 
           {!viewingHistory && selected && isMyTurn && (
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 gap-1 hide-mobile">
               <div />
               <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
               <div />
@@ -529,6 +577,48 @@ export default function GamePage() {
               <div />
               <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />
               <div />
+            </div>
+          )}
+
+          {/* Vaste actiebalk, alleen op mobiel (zie .game-action-bar in
+              globals.css) — houdt de belangrijkste acties altijd binnen
+              handbereik, zonder dat je naar beneden hoeft te scrollen. Op
+              desktop blijven de pijltjesknoppen en de knop in het paneel
+              hiernaast gewoon werken (zie hide-mobile hierboven/hieronder). */}
+          {!viewingHistory && isMyTurn && (
+            <div className="game-action-bar">
+              {pendingPlacement ? (
+                <>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>Hulpstuk plaatsen op dit vakje?</p>
+                  <div className="flex items-center gap-2">
+                    <button className="btn btn-solid" style={{ flex: 1 }} onClick={confirmPlacement}><Check size={15} /> Bevestig</button>
+                    <button className="btn" style={{ flex: 1 }} onClick={cancelPlacement}><X size={15} /> Annuleren</button>
+                  </div>
+                </>
+              ) : placing ? (
+                <>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>Tik op het bord om een hulpstuk te plaatsen.</p>
+                  <button className="btn" onClick={cancelPlacement}><X size={15} /> Annuleren</button>
+                </>
+              ) : selected ? (
+                <>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    {moveTargets.length > 0 ? "Tik op een gemarkeerd vakje om te bewegen." : "Geen zet mogelijk — probeer STOP of een ander stuk."}
+                  </p>
+                  <button
+                    className="btn"
+                    onClick={endTurn}
+                    disabled={!movedThisTurn || !canStopHere}
+                    title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}
+                  >
+                    <Square size={14} /> STOP
+                  </button>
+                </>
+              ) : (
+                <button className="btn" onClick={togglePlacing} disabled={movedThisTurn || state.toolsRemaining[effectiveRole] <= 0}>
+                  <ToolIcon /> Plaats hulpstuk
+                </button>
+              )}
             </div>
           )}
 
@@ -578,9 +668,16 @@ export default function GamePage() {
             <div>{nameFor("B")} — hulpstukken: {state.toolsRemaining.B}</div>
             {game.vs_computer && <div>Computer: {DIFFICULTY_LABELS[game.difficulty] || game.difficulty}</div>}
           </div>
-          <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[effectiveRole] <= 0}>
-            <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
-          </button>
+          {pendingPlacement ? (
+            <div className="hide-mobile flex items-center gap-2">
+              <button className="btn btn-solid" onClick={confirmPlacement}><Check size={15} /> Bevestig</button>
+              <button className="btn" onClick={cancelPlacement}><X size={15} /> Annuleren</button>
+            </div>
+          ) : (
+            <button className="btn hide-mobile" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[effectiveRole] <= 0}>
+              <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
+            </button>
+          )}
           {myRole && !state.winner && (
             <button className="btn btn-danger" onClick={resign}><Flag size={15} /> Opgeven</button>
           )}
