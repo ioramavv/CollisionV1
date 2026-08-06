@@ -50,15 +50,41 @@ body {
   font-size: 13px;
   letter-spacing: 0.03em;
   cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
 .btn:hover {
   background: var(--accent-dim);
 }
 
+/* Voelt aan als het aantikken van een speelstuk: een klein tikje omhoog bij
+   hover, en een korte "indruk" bij het klikken zelf. Los van de
+   achtergrondkleur-regel hierboven gehouden (geen `background` hier) zodat
+   de kleur-varianten (.btn-danger, .btn-success) hun eigen hover-achtergrond
+   kunnen blijven overschrijven zonder specificiteitsconflict. */
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+  box-shadow: none;
+}
+
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+  .btn:hover:not(:disabled),
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 .btn-solid {
@@ -440,5 +466,50 @@ details[open] .details-chevron {
   .confetti-piece {
     animation: none;
     display: none;
+  }
+}
+
+/* Winnaarsoverlay als een houten "prijsbord": een dik walnut kader met een
+   dun maple lijstje eromheen, i.p.v. een gewoon paneel. */
+.win-panel {
+  background: linear-gradient(180deg, var(--panel) 0%, #1b1712 100%);
+  border: 4px solid var(--walnut);
+  box-shadow: 0 0 0 1px var(--maple), 0 18px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* Zachte, pulserende gloed achter de trofee — voelt als een klein
+   spotlicht op het prijsbord. */
+.win-trophy-glow {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.win-trophy-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+  animation: win-glow-pulse 1.8s ease-in-out infinite;
+}
+
+.win-trophy-glow svg {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes win-glow-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .win-trophy-glow::before {
+    animation: none;
   }
 }

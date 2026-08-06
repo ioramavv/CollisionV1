@@ -449,14 +449,16 @@ export default function GamePage() {
         >
           {myRole && wonForMe && <Confetti />}
           <div
-            className="panel"
+            className="panel win-panel"
             style={{
               maxWidth: 360, width: "100%", textAlign: "center", display: "flex", flexDirection: "column", gap: 16,
               position: "relative", zIndex: 61, animation: "win-title-pop 420ms ease-out both",
             }}
           >
             {myRole && wonForMe && (
-              <Trophy size={40} style={{ margin: "0 auto", color: "var(--accent)" }} />
+              <div className="win-trophy-glow">
+                <Trophy size={40} style={{ color: "var(--accent)" }} />
+              </div>
             )}
             <h2 className="text-lg font-extrabold uppercase tracking-widest">
               {!myRole
