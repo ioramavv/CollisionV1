@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
 import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
-import { Avatar, Rating, DirBtn, ToolIcon } from "@/lib/ui";
+import { Avatar, Rating, DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
 
 function Confetti() {
@@ -430,7 +430,7 @@ export default function GamePage() {
     setArchived(true);
   }
 
-  if (loading) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
+  if (loading) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
   if (error && !state) return <main className="min-h-screen flex items-center justify-center">{error}</main>;
   if (!state) return null;
 

@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { BUGFIXES } from "@/lib/bugfixes";
-import { Avatar, Badge, Rating, BoardIcon } from "@/lib/ui";
+import { Avatar, Badge, Rating, BoardIcon, BoardLoader } from "@/lib/ui";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -199,7 +199,7 @@ export default function LobbyPage() {
     await refreshGames(user.id);
   }
 
-  if (loading) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
+  if (loading) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-2xl mx-auto flex flex-col gap-6">

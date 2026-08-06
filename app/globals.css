@@ -20,10 +20,17 @@
 
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
+  background-color: var(--bg);
+  /* Zeer subtiel geblokt patroon — een echo van het speelbord op de
+     achtergrond van elke pagina. Gebruikt de bordkleur (--board-dark) op
+     zeer lage dekking over de donkere achtergrond, zodat het als textuur
+     leesbaar is zonder ooit van de content af te leiden. */
+  background-image: repeating-conic-gradient(rgba(216, 191, 140, 0.04) 0% 25%, transparent 0% 50%);
+  background-size: 36px 36px;
+  background-attachment: fixed;
 }
 
 .mono {
@@ -137,8 +144,39 @@ body {
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-line);
+  border-top: 2px solid var(--walnut);
   border-radius: 8px;
   padding: 24px;
+}
+
+/* Klein bordanimatie voor laadmomenten: een pion die van hoek naar hoek
+   over een miniatuurbordje stuitert, net als een zet in het echte spel.
+   Bewust klein en niet schermvullend. */
+.board-loader-piece {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--walnut);
+  box-shadow: 0 0 0 1.5px rgba(23, 20, 15, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+  animation: board-loader-move 2.4s ease-in-out infinite;
+}
+
+@keyframes board-loader-move {
+  0%, 4%    { transform: translate(4px, 4px); }
+  20%, 24%  { transform: translate(44px, 4px); }
+  45%, 49%  { transform: translate(44px, 44px); }
+  70%, 74%  { transform: translate(4px, 44px); }
+  95%, 100% { transform: translate(4px, 4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-loader-piece {
+    animation: none;
+    transform: translate(4px, 4px);
+  }
 }
 
 .app-shell {
