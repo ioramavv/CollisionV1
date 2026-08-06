@@ -343,9 +343,15 @@ export default function GamePage() {
 
   function selectCell(r, c) {
     if (viewingHistory || !isMyTurn || placing) return;
+    const isSameCell = selected && selected.r === r && selected.c === c;
+    // Nogmaals op je al-geselecteerde stuk tikken deselecteert het weer,
+    // zodat je iets anders kunt proberen (een ander stuk, of een hulpstuk
+    // plaatsen) — maar alleen vóórdat je bewogen hebt. Daarna zit je aan
+    // die zet vast tot STOP of Annuleer beurt.
+    if (isSameCell && !movedThisTurn) { setSelected(null); return; }
+    if (movedThisTurn && !isSameCell) return;
     const cell = state.board[r][c];
     if (!cell || cell.owner !== effectiveRole) return;
-    if (movedThisTurn && !(selected && selected.r === r && selected.c === c)) return;
     setSelected({ r, c, type: cell.type });
   }
 
