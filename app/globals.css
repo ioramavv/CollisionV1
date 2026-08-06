@@ -368,11 +368,80 @@ body {
   }
 }
 
+/* Verbergt een element op mobiel — gebruikt voor bedieningselementen die
+   daar vervangen worden door de vaste actiebalk (.game-action-bar) op de
+   spelpagina, zoals de pijltjesknoppen en de "Plaats hulpstuk"-knop in het
+   zijpaneel. */
+@media (max-width: 720px) {
+  .hide-mobile {
+    display: none;
+  }
+}
+
+/* Vaste actiebalk onderaan op de spelpagina, alleen op mobiel: houdt STOP
+   en "Plaats hulpstuk" altijd binnen handbereik, ook op een bord dat bijna
+   de volledige breedte van het scherm gebruikt. Zie de toelichting bij
+   .page-transition hierboven — position: fixed werkt hier alleen betrouwbaar
+   omdat dat element geen blijvende `transform` meer achterlaat. */
+.game-action-bar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .game-action-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    background: var(--panel);
+    border-top: 2px solid var(--walnut);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Ruimte onderaan zodat de vaste actiebalk geen inhoud verbergt. */
+@media (max-width: 720px) {
+  .game-page-main {
+    padding-bottom: 108px;
+  }
+}
+
+/* Pulserende "ghost" op een vakje waar een hulpstuk klaarstaat om
+   geplaatst te worden, maar nog niet bevestigd is. */
+.pending-tool-pulse {
+  animation: pending-tool-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes pending-tool-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-tool-pulse {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 /* Pagina-overgang: voelt als het schuiven van een spelstuk over het bord —
    komt van opzij binnenschuiven en veert er licht overheen tot rust, net
-   als een stuiter in het spel zelf. */
+   als een stuiter in het spel zelf.
+   Bewust GEEN `both`/`forwards` fill-mode: de laatste keyframe (opacity 1,
+   translateX(0)) is al identiek aan de niet-geanimeerde staat, dus dat kost
+   niets visueel — maar `forwards` zou de berekende `transform` van dit
+   element (dat de hele app omvat) voorgoed op een niet-"none"-waarde laten
+   staan. Dat maakt dit element een containing block voor élk
+   `position: fixed`-element in de app (zoals de winnaarsoverlay of een
+   vaste actiebalk), waardoor die niet meer echt aan de viewport vastzitten
+   maar meescrollen met de pagina.  */
 .page-transition {
-  animation: page-enter 560ms cubic-bezier(0.22, 0.85, 0.32, 1) both;
+  animation: page-enter 560ms cubic-bezier(0.22, 0.85, 0.32, 1);
 }
 
 @keyframes page-enter {
