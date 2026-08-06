@@ -12,6 +12,17 @@ export const metadata = {
   description: "Online versie van Collision, het bordspel van Mosquito Games.",
 };
 
+// Zet-in/uitzoomen staat uit — de pagina's zijn overal op ontworpen om
+// precies in het scherm te passen (zie o.a. de vaste actiebalk op de
+// spelpagina), dus (per ongeluk) inzoomen levert alleen maar een layout op
+// die niet meer klopt.
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="nl" className={poppins.variable}>

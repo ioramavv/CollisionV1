@@ -161,7 +161,10 @@ body {
   color: var(--text);
   padding: 10px 12px;
   border-radius: 6px;
-  font-size: 14px;
+  /* 16px, niet kleiner: onder die grens zoomt iOS Safari automatisch in
+     zodra dit veld focus krijgt (bv. bij het openen van de chat, die het
+     tekstveld meteen focust) — dat is precies waar dit voor is. */
+  font-size: 16px;
   width: 100%;
 }
 
