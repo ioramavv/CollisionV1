@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { Avatar, Badge, Rating } from "@/lib/ui";
+import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
 
 // Beknopt overzicht: spelregel -> welke code/mechanic 'm afdwingt. Puur
 // referentiemateriaal voor de admin, geen live data dus geen state nodig.
@@ -98,7 +98,7 @@ export default function AdminPage() {
     if (error) setError("Verwijderen mislukt: " + error.message);
   }
 
-  if (loading || !allowed) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
+  if (loading || !allowed) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-3xl mx-auto flex flex-col gap-6">

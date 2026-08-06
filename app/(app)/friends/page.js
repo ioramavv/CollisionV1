@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, UserPlus, Check, X, Ban, UserMinus } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { Avatar, Rating } from "@/lib/ui";
+import { Avatar, Rating, BoardLoader } from "@/lib/ui";
 
 export default function FriendsPage() {
   const router = useRouter();
@@ -102,7 +102,7 @@ export default function FriendsPage() {
     await supabase.from("friendships").delete().eq("id", id);
   }
 
-  if (loading) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
+  if (loading) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-2xl mx-auto flex flex-col gap-6">

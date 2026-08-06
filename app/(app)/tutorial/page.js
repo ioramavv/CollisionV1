@@ -7,7 +7,7 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
 import { chooseComputerTurn } from "@/lib/collisionAI";
-import { DirBtn, ToolIcon } from "@/lib/ui";
+import { DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
 
 // Uitlegpagina: een echte, volledig lokale oefenpartij tegen de computer
@@ -239,7 +239,7 @@ export default function TutorialPage() {
 
   const highlightPawn = stepIndex === 0 && !selected ? { r: state.pawnPos.A[0], c: state.pawnPos.A[1] } : null;
 
-  if (checkingAuth) return <main className="min-h-screen flex items-center justify-center">Laden...</main>;
+  if (checkingAuth) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
   return (
     <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6">
