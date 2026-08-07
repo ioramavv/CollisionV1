@@ -392,18 +392,12 @@ export default function LobbyPage() {
                   <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
                     <Avatar username={opponentName} />
                     {opponentName ? `Partij met ${opponentName}` : "Partij"} <Rating value={opponentRating} />
-                    <Badge tone={g.status === "waiting" ? "waiting" : "active"}>
-                      {g.status === "waiting" ? "wacht op tegenstander" : "actief"}
-                    </Badge>
+                    {g.status === "waiting" && <Badge tone="waiting">wacht op tegenstander</Badge>}
                     {g.vs_computer ? (
                       <Badge tone="warning"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"} (bèta)</Badge>
                     ) : g.local_multiplayer ? (
                       <Badge tone="neutral"><Smartphone size={12} /> lokaal</Badge>
-                    ) : (
-                      <Badge tone={g.invited_id ? "closed" : "open"}>
-                        {g.invited_id ? "gesloten match" : "open match"}
-                      </Badge>
-                    )}
+                    ) : null}
                     {isMyTurn && <Badge tone="turn">Jouw beurt!</Badge>}
                   </span>
                   {canDelete && (
