@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone } from "lucide-react";
+import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -494,20 +494,26 @@ export default function LobbyPage() {
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <Bug size={15} /> Opgeloste bugs
-        </h2>
-        <ul className="flex flex-col gap-3">
-          {BUGFIXES.map((fix, i) => (
-            <li key={i} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
-              <div className="flex items-center gap-2 flex-wrap">
-                <strong>{fix.title}</strong>
-                {fix.date && <span className="text-xs mono" style={{ color: "var(--muted)" }}>{fix.date}</span>}
-              </div>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>{fix.detail}</p>
-            </li>
-          ))}
-        </ul>
+        <details>
+          <summary
+            className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2"
+            style={{ color: "var(--accent)" }}
+          >
+            <Bug size={15} /> Opgeloste bugs
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
+          <ul className="flex flex-col gap-3 mt-3">
+            {BUGFIXES.map((fix, i) => (
+              <li key={i} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <strong>{fix.title}</strong>
+                  {fix.date && <span className="text-xs mono" style={{ color: "var(--muted)" }}>{fix.date}</span>}
+                </div>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>{fix.detail}</p>
+              </li>
+            ))}
+          </ul>
+        </details>
       </section>
     </main>
   );
