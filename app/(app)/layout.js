@@ -110,6 +110,11 @@ export default function AppLayout({ children }) {
   }
 
   const isAdmin = profile?.username === "JorADMIN";
+  // De spelpagina heeft geen ruimte voor de vaste onderbalk — die zou
+  // overlappen met haar eigen vaste actiebalk (STOP, hulpstuk plaatsen).
+  // Daarom krijgt de kopbalk daar zelf de navigatie-tabs; op alle andere
+  // pagina's blijft de onderbalk (was al goed zo) gewoon staan.
+  const isGamePage = pathname.startsWith("/game/");
 
   return (
     <div className="app-shell">
@@ -177,29 +182,32 @@ export default function AppLayout({ children }) {
         </div>
       </nav>
 
-      {/* Mobiele kopbalk — branding, navigatie-iconen en account-avatar.
-          Altijd zichtbaar, ook op de spelpagina: die heeft verder geen
-          eigen manier om naar een andere pagina te gaan (de vaste
-          actiebalk daar onderin is puur voor de zet zelf). */}
+      {/* Mobiele kopbalk — branding + account-avatar. Op de spelpagina komen
+          de navigatie-tabs er ook bij (zie isGamePage hierboven), want daar
+          is geen ruimte voor de onderbalk. Op alle andere pagina's is de
+          onderbalk (.bottom-nav) de plek voor navigatie — dat was al goed
+          zo. */}
       <header className="mobile-topbar">
         <Logo size={16} />
-        <div className="mobile-topbar-nav">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`mobile-topbar-tab${pathname.startsWith(link.href) ? " active" : ""}`}
-              aria-label={link.label}
-            >
-              <span style={{ position: "relative", display: "inline-flex" }}>
-                <link.icon size={19} strokeWidth={2} />
-                {link.href === "/friends" && pendingRequests > 0 && (
-                  <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
-                )}
-              </span>
-            </Link>
-          ))}
-        </div>
+        {isGamePage && (
+          <div className="mobile-topbar-nav">
+            {LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`mobile-topbar-tab${pathname.startsWith(link.href) ? " active" : ""}`}
+                aria-label={link.label}
+              >
+                <span style={{ position: "relative", display: "inline-flex" }}>
+                  <link.icon size={19} strokeWidth={2} />
+                  {link.href === "/friends" && pendingRequests > 0 && (
+                    <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+                  )}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
         <button
           className="mobile-topbar-avatar"
           onClick={() => setAccountMenuOpen(true)}
@@ -209,7 +217,33 @@ export default function AppLayout({ children }) {
         </button>
       </header>
 
-      <main className="app-content">{children}</main>
+      <main className={`app-content${!isGamePage ? " app-content-with-bottom-nav" : ""}`}>{children}</main>
+
+      {/* Vaste onderbalk op mobiel, op alle pagina's behalve de spelpagina
+          (zie isGamePage). Geen "Nieuwe partij"-knop meer (dubbelop met de
+          Snel spelen-carrousel op de lobbypagina) en geen "Meer"-tab meer
+          (dat zit nu achter de account-avatar in de kopbalk). */}
+      {!isGamePage && (
+        <nav className="bottom-nav">
+          <div className="bottom-nav-tabs">
+            {LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`bottom-nav-tab${pathname.startsWith(link.href) ? " active" : ""}`}
+              >
+                <span style={{ position: "relative", display: "inline-flex" }}>
+                  <link.icon size={19} strokeWidth={2} />
+                  {link.href === "/friends" && pendingRequests > 0 && (
+                    <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+                  )}
+                </span>
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
 
       {accountMenuOpen && (
         <div
