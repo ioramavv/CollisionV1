@@ -37,12 +37,17 @@ create table if not exists profiles (
   -- tegen de computer) — zie apply_game_rating() hieronder.
   rating integer not null default 1200,
   rating_games integer not null default 0,
+  -- Publieke URL van een geüploade profielfoto (storage-bucket "avatars",
+  -- zie onderaan dit bestand). Null = geen foto, dan valt de UI terug op de
+  -- gekleurde initiaal-cirkel (Avatar-component in lib/ui.js).
+  avatar_url text,
   created_at timestamptz default now()
 );
 
 alter table profiles enable row level security;
 alter table profiles add column if not exists rating integer not null default 1200;
 alter table profiles add column if not exists rating_games integer not null default 0;
+alter table profiles add column if not exists avatar_url text;
 
 select _drop_all_policies('profiles', 'SELECT');
 create policy "Profielen zijn zichtbaar voor iedereen"
@@ -379,3 +384,33 @@ select _ensure_realtime('games');
 select _ensure_realtime('friendships');
 select _ensure_realtime('feedback');
 select _ensure_realtime('game_messages');
+
+-- 8) Storage-bucket voor profielfoto's. Publiek leesbaar (avatars zijn
+--    sowieso al overal zichtbaar, net als usernames), maar iedereen mag
+--    alleen bestanden in zijn eigen map (avatars/<user_id>/...) uploaden,
+--    overschrijven of verwijderen. storage.objects zit niet in de 'public'-
+--    schema, dus _drop_all_policies (die is vastgezet op schemaname =
+--    'public') werkt hier niet — vandaar losse "drop policy if exists".
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Avatars zijn publiek leesbaar" on storage.objects;
+create policy "Avatars zijn publiek leesbaar"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+drop policy if exists "Gebruiker mag alleen in eigen avatar-map uploaden" on storage.objects;
+create policy "Gebruiker mag alleen in eigen avatar-map uploaden"
+  on storage.objects for insert
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Gebruiker mag eigen avatar overschrijven" on storage.objects;
+create policy "Gebruiker mag eigen avatar overschrijven"
+  on storage.objects for update
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "Gebruiker mag eigen avatar verwijderen" on storage.objects;
+create policy "Gebruiker mag eigen avatar verwijderen"
+  on storage.objects for delete
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);

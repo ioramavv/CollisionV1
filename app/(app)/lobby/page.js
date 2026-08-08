@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight } from "lucide-react";
+import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { BUGFIXES } from "@/lib/bugfixes";
-import { Avatar, Badge, Rating, BoardIcon, BoardLoader } from "@/lib/ui";
+import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function LobbyPage() {
   const [myGames, setMyGames] = useState([]);
   const [archivedGames, setArchivedGames] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newGameStep, setNewGameStep] = useState(null); // null | "choose" | "invite" | "computer" | "local"
+  const [newGameStep, setNewGameStep] = useState(null); // null | "invite" | "computer" | "local"
   const [localNameA, setLocalNameA] = useState("");
   const [localNameB, setLocalNameB] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,6 +28,8 @@ export default function LobbyPage() {
   const [deleteError, setDeleteError] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [myRating, setMyRating] = useState(null);
+  const [stats, setStats] = useState({ wins: 0, losses: 0 });
+  const [friendsList, setFriendsList] = useState([]);
 
   useEffect(() => {
     let channel;
@@ -59,9 +61,42 @@ export default function LobbyPage() {
     return () => document.removeEventListener("click", handleClick);
   }, [openMenuId]);
 
+  // Alleen afgeronde partijen tussen twee echte spelers tellen mee (net als
+  // bij de rating) — vier losse count-only queries, want requester/addressee
+  // wisselen per rij en jsonb-filters op state->>winner laten zich niet in
+  // één keer combineren met "welke kant was ik".
+  async function refreshStats(userId) {
+    const [aWin, bWin, aLoss, bLoss] = await Promise.all([
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_a", userId).filter("state->>winner", "eq", "A"),
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_b", userId).filter("state->>winner", "eq", "B"),
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_a", userId).filter("state->>winner", "eq", "B"),
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_b", userId).filter("state->>winner", "eq", "A"),
+    ]);
+    setStats({
+      wins: (aWin.count || 0) + (bWin.count || 0),
+      losses: (aLoss.count || 0) + (bLoss.count || 0),
+    });
+  }
+
+  // Voor de "Vriend uitnodigen"-stap: je eigen vriendenlijst, zodat je
+  // meteen kunt aantikken i.p.v. eerst een gebruikersnaam te moeten typen.
+  async function refreshFriendsList(userId) {
+    const { data } = await supabase
+      .from("friendships")
+      .select("requester_id, addressee_id, requester:requester_id(id, username, rating), addressee:addressee_id(id, username, rating)")
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+    const rows = (data || [])
+      .map((r) => (r.requester_id === userId ? r.addressee : r.requester))
+      .filter(Boolean);
+    setFriendsList(rows);
+  }
+
   async function refreshGames(userId) {
     const { data: profile } = await supabase.from("profiles").select("rating").eq("id", userId).single();
     setMyRating(profile?.rating ?? null);
+    refreshStats(userId);
+    refreshFriendsList(userId);
 
     const { data: waiting } = await supabase
       .from("games")
@@ -279,23 +314,6 @@ export default function LobbyPage() {
               <button className="btn btn-icon" onClick={closeNewGameModal}><X size={16} /></button>
             </div>
 
-            {newGameStep === "choose" && (
-              <div className="flex flex-col gap-2">
-                <button className="btn btn-solid" onClick={() => createGame()}>
-                  <Play size={15} /> Open partij starten
-                </button>
-                <button className="btn" onClick={() => setNewGameStep("invite")}>
-                  <UserPlus size={15} /> Speler uitnodigen
-                </button>
-                <button className="btn" onClick={() => setNewGameStep("computer")}>
-                  <Cpu size={15} /> Tegen de computer
-                </button>
-                <button className="btn" onClick={() => setNewGameStep("local")}>
-                  <Smartphone size={15} /> Lokaal (1 apparaat)
-                </button>
-              </div>
-            )}
-
             {newGameStep === "local" && (
               <div className="flex flex-col gap-3">
                 <p className="text-xs" style={{ color: "var(--muted)" }}>
@@ -348,6 +366,25 @@ export default function LobbyPage() {
 
             {newGameStep === "invite" && (
               <div className="flex flex-col gap-3">
+                {friendsList.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>Jouw vrienden</p>
+                    <ul className="flex flex-col gap-2" style={{ maxHeight: 220, overflowY: "auto" }}>
+                      {friendsList.map((f) => (
+                        <li key={f.id} className="flex items-center justify-between text-sm">
+                          <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                            <Avatar username={f.username} />
+                            {f.username} <Rating value={f.rating} />
+                          </span>
+                          <button className="btn" onClick={() => createGame(f.id)}>
+                            <UserPlus size={15} /> Uitnodigen
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>Of zoek iemand anders op</p>
+                  </div>
+                )}
                 <form onSubmit={searchUsers} className="flex items-center gap-2">
                   <input
                     type="text"
@@ -355,7 +392,7 @@ export default function LobbyPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Zoek op gebruikersnaam..."
                     className="input flex-1"
-                    autoFocus
+                    autoFocus={friendsList.length === 0}
                   />
                   <button className="btn btn-icon" type="submit" disabled={searching}><Search size={15} /></button>
                 </form>
@@ -379,31 +416,6 @@ export default function LobbyPage() {
           </div>
         </div>
       )}
-
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold uppercase tracking-widest flex items-center gap-2">
-          Lobby
-          {myRating != null && (
-            <span className="text-xs mono" style={{ color: "var(--muted)", fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>
-              jouw rating: {myRating}
-            </span>
-          )}
-        </h1>
-        <button className="btn btn-solid" onClick={() => setNewGameStep("choose")}>
-          <Plus size={16} /> Nieuwe partij
-        </button>
-      </div>
-
-      <div className="panel flex items-center gap-3 flex-wrap" style={{ borderColor: "var(--accent)" }}>
-        <BoardIcon size={30} />
-        <p className="text-sm flex-1" style={{ minWidth: 180 }}>
-          Ken je de spelregels nog niet?{" "}
-          <span style={{ color: "var(--muted)" }}>Speel een korte interactieve uitlegronde en leer Collision spelenderwijs.</span>
-        </p>
-        <button className="btn btn-solid" onClick={() => router.push("/tutorial")}>
-          <BoardIcon size={14} /> Start uitleg
-        </button>
-      </div>
 
       {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
       {deleteError && <p className="text-sm" style={{ color: "#e07a5f" }}>{deleteError}</p>}
@@ -450,6 +462,83 @@ export default function LobbyPage() {
           </ul>
         </section>
       )}
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+          Snel spelen
+        </h2>
+        <div className="carousel">
+          <button className="carousel-card" onClick={() => setNewGameStep("invite")}>
+            <span className="carousel-card-icon" style={{ background: "rgba(143, 180, 214, 0.18)", color: "#8fb4d6" }}>
+              <UserPlus size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Vriend uitnodigen</span>
+              <span className="carousel-card-sub">Speel 1-op-1</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => setNewGameStep("computer")}>
+            <span className="carousel-card-icon" style={{ background: "rgba(224, 178, 76, 0.18)", color: "#e0b24c" }}>
+              <Cpu size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Tegen de computer</span>
+              <span className="carousel-card-sub">4 niveaus</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => setNewGameStep("local")}>
+            <span className="carousel-card-icon" style={{ background: "var(--panel-line)", color: "var(--text)" }}>
+              <Smartphone size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Lokaal spelen</span>
+              <span className="carousel-card-sub">Samen op de bank</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => createGame()}>
+            <span className="carousel-card-icon" style={{ background: "rgba(157, 185, 138, 0.18)", color: "#9db98a" }}>
+              <Play size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Open partij</span>
+              <span className="carousel-card-sub">Iedereen mag joinen</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => router.push("/tutorial")}>
+            <span className="carousel-card-icon" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+              <HelpCircle size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Uitleg</span>
+              <span className="carousel-card-sub">Leer de regels</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+          Statistieken
+        </h2>
+        <div className="carousel">
+          <div className="stat-card">
+            <span className="stat-card-value">{myRating ?? "—"}</span>
+            <span className="stat-card-label">Rating</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value">{myGames.length}</span>
+            <span className="stat-card-label">Actief</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value" style={{ color: "#9db98a" }}>{stats.wins}</span>
+            <span className="stat-card-label">Gewonnen</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value" style={{ color: "#e07a5f" }}>{stats.losses}</span>
+            <span className="stat-card-label">Verloren</span>
+          </div>
+        </div>
+      </section>
 
       {archivedGames.length > 0 && (
         <section className="panel">

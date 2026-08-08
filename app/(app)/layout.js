@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, Menu, HelpCircle } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 
@@ -22,14 +22,14 @@ export default function AppLayout({ children }) {
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
-  // Sluit het mobiele menu automatisch zodra er (client-side) genavigeerd
+  // Sluit het account-menu automatisch zodra er (client-side) genavigeerd
   // wordt, zodat het niet openstaat blijft na het kiezen van een link.
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
-    setMobileMenuOpen(false);
+    setAccountMenuOpen(false);
   }
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function AppLayout({ children }) {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from("profiles").select("username").eq("id", user.id).single();
+      const { data } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).single();
       if (!active) return;
       setUser(user);
       setProfile(data);
@@ -110,25 +110,20 @@ export default function AppLayout({ children }) {
   }
 
   const isAdmin = profile?.username === "JorADMIN";
+  // De spelpagina heeft geen ruimte voor de vaste onderbalk — die zou
+  // overlappen met haar eigen vaste actiebalk (STOP, hulpstuk plaatsen).
+  // Daarom krijgt de kopbalk daar zelf de navigatie-tabs; op alle andere
+  // pagina's blijft de onderbalk (was al goed zo) gewoon staan.
+  const isGamePage = pathname.startsWith("/game/");
 
   return (
     <div className="app-shell">
-      <nav className={`sidebar${mobileMenuOpen ? " open" : ""}`}>
+      {/* Desktop-navigatie — op mobiel vervangen door de kopbalk hieronder. */}
+      <nav className="sidebar">
         <div className="sidebar-top">
           <div className="sidebar-brand">
             <Logo size={20} />
           </div>
-          <button
-            className="btn btn-icon sidebar-toggle"
-            onClick={() => setMobileMenuOpen((o) => !o)}
-            aria-label={mobileMenuOpen ? "Menu sluiten" : "Menu openen"}
-            style={{ position: "relative" }}
-          >
-            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-            {!mobileMenuOpen && pendingRequests > 0 && (
-              <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
-            )}
-          </button>
         </div>
         <div className="sidebar-body">
           <ul className="sidebar-nav">
@@ -148,6 +143,12 @@ export default function AppLayout({ children }) {
                 </Link>
               </li>
             ))}
+            <li>
+              <Link href="/profile" className={`sidebar-link${pathname.startsWith("/profile") ? " active" : ""}`}>
+                <UserCircle size={17} strokeWidth={2} />
+                Profiel
+              </Link>
+            </li>
             <li>
               <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={openFeedback}>
                 <MessageSquarePlus size={17} strokeWidth={2} />
@@ -169,7 +170,7 @@ export default function AppLayout({ children }) {
           <div className="sidebar-footer">
             {profile && (
               <span className="mono sidebar-username" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Avatar username={profile.username} size={22} />
+                <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={22} />
                 {profile.username}
               </span>
             )}
@@ -180,7 +181,113 @@ export default function AppLayout({ children }) {
           </div>
         </div>
       </nav>
-      <main className="app-content">{children}</main>
+
+      {/* Mobiele kopbalk — branding + account-avatar. Op de spelpagina komen
+          de navigatie-tabs er ook bij (zie isGamePage hierboven), want daar
+          is geen ruimte voor de onderbalk. Op alle andere pagina's is de
+          onderbalk (.bottom-nav) de plek voor navigatie — dat was al goed
+          zo. */}
+      <header className="mobile-topbar">
+        <Logo size={16} />
+        {isGamePage && (
+          <div className="mobile-topbar-nav">
+            {LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`mobile-topbar-tab${pathname.startsWith(link.href) ? " active" : ""}`}
+                aria-label={link.label}
+              >
+                <span style={{ position: "relative", display: "inline-flex" }}>
+                  <link.icon size={19} strokeWidth={2} />
+                  {link.href === "/friends" && pendingRequests > 0 && (
+                    <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+                  )}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+        <button
+          className="mobile-topbar-avatar"
+          onClick={() => setAccountMenuOpen(true)}
+          aria-label="Account-menu openen"
+        >
+          {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={26} />}
+        </button>
+      </header>
+
+      <main className={`app-content${!isGamePage ? " app-content-with-bottom-nav" : ""}`}>{children}</main>
+
+      {/* Vaste onderbalk op mobiel, op alle pagina's behalve de spelpagina
+          (zie isGamePage). Geen "Nieuwe partij"-knop meer (dubbelop met de
+          Snel spelen-carrousel op de lobbypagina) en geen "Meer"-tab meer
+          (dat zit nu achter de account-avatar in de kopbalk). */}
+      {!isGamePage && (
+        <nav className="bottom-nav">
+          <div className="bottom-nav-tabs">
+            {LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`bottom-nav-tab${pathname.startsWith(link.href) ? " active" : ""}`}
+              >
+                <span style={{ position: "relative", display: "inline-flex" }}>
+                  <link.icon size={19} strokeWidth={2} />
+                  {link.href === "/friends" && pendingRequests > 0 && (
+                    <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+                  )}
+                </span>
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
+
+      {accountMenuOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "flex-start", justifyContent: "flex-end", zIndex: 55,
+          }}
+          onClick={() => setAccountMenuOpen(false)}
+        >
+          <div
+            className="panel"
+            style={{ width: "100%", maxWidth: 280, margin: "8px 8px 0 0", display: "flex", flexDirection: "column", gap: 4 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+              {profile && (
+                <span className="mono" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                  <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={24} />
+                  {profile.username}
+                </span>
+              )}
+              <button className="btn btn-icon" onClick={() => setAccountMenuOpen(false)}><X size={16} /></button>
+            </div>
+            <Link href="/profile" className="sidebar-link" onClick={() => setAccountMenuOpen(false)}>
+              <UserCircle size={17} strokeWidth={2} />
+              Profiel
+            </Link>
+            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={() => { setAccountMenuOpen(false); openFeedback(); }}>
+              <MessageSquarePlus size={17} strokeWidth={2} />
+              Feedback
+            </button>
+            {isAdmin && (
+              <Link href="/admin" className="sidebar-link" onClick={() => setAccountMenuOpen(false)}>
+                <ShieldCheck size={17} strokeWidth={2} />
+                Admin
+              </Link>
+            )}
+            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
+              <LogOut size={17} strokeWidth={2} />
+              Uitloggen
+            </button>
+          </div>
+        </div>
+      )}
 
       {feedbackOpen && (
         <div
