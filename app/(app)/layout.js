@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, Menu, HelpCircle } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, Plus, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 
@@ -110,25 +110,25 @@ export default function AppLayout({ children }) {
   }
 
   const isAdmin = profile?.username === "JorADMIN";
+  // De spelpagina heeft al haar eigen vaste actiebalk onderin (STOP,
+  // hulpstuk plaatsen, ...) — daar zou de algemene onderbalk mee overlappen.
+  // Net als bij chess.com zelf: tijdens het spelen verdwijnt de gewone
+  // navigatie voor de in-spel-bediening.
+  const showMobileChrome = !pathname.startsWith("/game/");
+
+  function goNewGame() {
+    router.push("/lobby?newGame=1");
+  }
 
   return (
     <div className="app-shell">
-      <nav className={`sidebar${mobileMenuOpen ? " open" : ""}`}>
+      {/* Desktop-navigatie — op mobiel vervangen door de vaste onderbalk
+          hieronder (zie .sidebar { display:none } in globals.css). */}
+      <nav className="sidebar">
         <div className="sidebar-top">
           <div className="sidebar-brand">
             <Logo size={20} />
           </div>
-          <button
-            className="btn btn-icon sidebar-toggle"
-            onClick={() => setMobileMenuOpen((o) => !o)}
-            aria-label={mobileMenuOpen ? "Menu sluiten" : "Menu openen"}
-            style={{ position: "relative" }}
-          >
-            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-            {!mobileMenuOpen && pendingRequests > 0 && (
-              <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
-            )}
-          </button>
         </div>
         <div className="sidebar-body">
           <ul className="sidebar-nav">
@@ -180,7 +180,90 @@ export default function AppLayout({ children }) {
           </div>
         </div>
       </nav>
-      <main className="app-content">{children}</main>
+
+      {/* Mobiele kopbalk — puur branding, navigatie zit onderin. Op de
+          spelpagina weg: die heeft de ruimte harder nodig (zie
+          showMobileChrome hierboven) en heeft al haar eigen koppen. */}
+      {showMobileChrome && (
+        <header className="mobile-topbar">
+          <Logo size={18} />
+          {profile && <Avatar username={profile.username} size={24} />}
+        </header>
+      )}
+
+      <main className={`app-content${showMobileChrome ? " app-content-with-bottom-nav" : ""}`}>{children}</main>
+
+      {/* Vaste onderbalk op mobiel, net als chess.com: een grote
+          "Nieuwe partij"-knop boven een rij tabs. Vervangt het oude
+          hamburgermenu volledig. */}
+      {showMobileChrome && (
+        <nav className="bottom-nav">
+          <button className="btn btn-solid bottom-nav-play" onClick={goNewGame}>
+            <Plus size={16} /> Nieuwe partij
+          </button>
+          <div className="bottom-nav-tabs">
+            {LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`bottom-nav-tab${pathname.startsWith(link.href) ? " active" : ""}`}
+              >
+                <span style={{ position: "relative", display: "inline-flex" }}>
+                  <link.icon size={19} strokeWidth={2} />
+                  {link.href === "/friends" && pendingRequests > 0 && (
+                    <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+                  )}
+                </span>
+                {link.label}
+              </Link>
+            ))}
+            <button className="bottom-nav-tab" onClick={() => setMobileMenuOpen(true)}>
+              <MoreHorizontal size={19} strokeWidth={2} />
+              Meer
+            </button>
+          </div>
+        </nav>
+      )}
+
+      {mobileMenuOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 55,
+          }}
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            className="panel"
+            style={{ width: "100%", maxWidth: 480, borderRadius: "12px 12px 0 0", display: "flex", flexDirection: "column", gap: 4 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+              {profile && (
+                <span className="mono" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+                  <Avatar username={profile.username} size={24} />
+                  {profile.username}
+                </span>
+              )}
+              <button className="btn btn-icon" onClick={() => setMobileMenuOpen(false)}><X size={16} /></button>
+            </div>
+            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={() => { setMobileMenuOpen(false); openFeedback(); }}>
+              <MessageSquarePlus size={17} strokeWidth={2} />
+              Feedback
+            </button>
+            {isAdmin && (
+              <Link href="/admin" className="sidebar-link" onClick={() => setMobileMenuOpen(false)}>
+                <ShieldCheck size={17} strokeWidth={2} />
+                Admin
+              </Link>
+            )}
+            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
+              <LogOut size={17} strokeWidth={2} />
+              Uitloggen
+            </button>
+          </div>
+        </div>
+      )}
 
       {feedbackOpen && (
         <div

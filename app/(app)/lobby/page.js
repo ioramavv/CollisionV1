@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight } from "lucide-react";
+import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { BUGFIXES } from "@/lib/bugfixes";
-import { Avatar, Badge, Rating, BoardIcon, BoardLoader } from "@/lib/ui";
+import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -28,6 +28,8 @@ export default function LobbyPage() {
   const [deleteError, setDeleteError] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [myRating, setMyRating] = useState(null);
+  const [stats, setStats] = useState({ wins: 0, losses: 0 });
+  const [consumedNewGameParam, setConsumedNewGameParam] = useState(false);
 
   useEffect(() => {
     let channel;
@@ -59,9 +61,27 @@ export default function LobbyPage() {
     return () => document.removeEventListener("click", handleClick);
   }, [openMenuId]);
 
+  // Alleen afgeronde partijen tussen twee echte spelers tellen mee (net als
+  // bij de rating) — vier losse count-only queries, want requester/addressee
+  // wisselen per rij en jsonb-filters op state->>winner laten zich niet in
+  // één keer combineren met "welke kant was ik".
+  async function refreshStats(userId) {
+    const [aWin, bWin, aLoss, bLoss] = await Promise.all([
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_a", userId).filter("state->>winner", "eq", "A"),
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_b", userId).filter("state->>winner", "eq", "B"),
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_a", userId).filter("state->>winner", "eq", "B"),
+      supabase.from("games").select("id", { count: "exact", head: true }).eq("status", "finished").eq("vs_computer", false).eq("local_multiplayer", false).eq("player_b", userId).filter("state->>winner", "eq", "A"),
+    ]);
+    setStats({
+      wins: (aWin.count || 0) + (bWin.count || 0),
+      losses: (aLoss.count || 0) + (bLoss.count || 0),
+    });
+  }
+
   async function refreshGames(userId) {
     const { data: profile } = await supabase.from("profiles").select("rating").eq("id", userId).single();
     setMyRating(profile?.rating ?? null);
+    refreshStats(userId);
 
     const { data: waiting } = await supabase
       .from("games")
@@ -261,6 +281,15 @@ export default function LobbyPage() {
 
   if (loading) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
+  // De "Nieuwe partij"-knop in de vaste mobiele onderbalk (layout.js) is
+  // overal in de app zichtbaar en stuurt hierheen met ?newGame=1, zodat 'm
+  // direct de kiezer opent i.p.v. eerst alleen naar de lobby te navigeren.
+  if (!consumedNewGameParam && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("newGame") === "1") {
+    setConsumedNewGameParam(true);
+    setNewGameStep("choose");
+    window.history.replaceState(null, "", "/lobby");
+  }
+
   const myTurnGames = myGames.filter(needsMyAction);
   const theirTurnGames = myGames.filter((g) => !needsMyAction(g));
 
@@ -394,16 +423,82 @@ export default function LobbyPage() {
         </button>
       </div>
 
-      <div className="panel flex items-center gap-3 flex-wrap" style={{ borderColor: "var(--accent)" }}>
-        <BoardIcon size={30} />
-        <p className="text-sm flex-1" style={{ minWidth: 180 }}>
-          Ken je de spelregels nog niet?{" "}
-          <span style={{ color: "var(--muted)" }}>Speel een korte interactieve uitlegronde en leer Collision spelenderwijs.</span>
-        </p>
-        <button className="btn btn-solid" onClick={() => router.push("/tutorial")}>
-          <BoardIcon size={14} /> Start uitleg
-        </button>
-      </div>
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+          Snel spelen
+        </h2>
+        <div className="carousel">
+          <button className="carousel-card" onClick={() => setNewGameStep("invite")}>
+            <span className="carousel-card-icon" style={{ background: "rgba(143, 180, 214, 0.18)", color: "#8fb4d6" }}>
+              <UserPlus size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Vriend uitnodigen</span>
+              <span className="carousel-card-sub">Speel 1-op-1</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => setNewGameStep("computer")}>
+            <span className="carousel-card-icon" style={{ background: "rgba(224, 178, 76, 0.18)", color: "#e0b24c" }}>
+              <Cpu size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Tegen de computer</span>
+              <span className="carousel-card-sub">4 niveaus</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => setNewGameStep("local")}>
+            <span className="carousel-card-icon" style={{ background: "var(--panel-line)", color: "var(--text)" }}>
+              <Smartphone size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Lokaal spelen</span>
+              <span className="carousel-card-sub">Samen op de bank</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => createGame()}>
+            <span className="carousel-card-icon" style={{ background: "rgba(157, 185, 138, 0.18)", color: "#9db98a" }}>
+              <Play size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Open partij</span>
+              <span className="carousel-card-sub">Iedereen mag joinen</span>
+            </span>
+          </button>
+          <button className="carousel-card" onClick={() => router.push("/tutorial")}>
+            <span className="carousel-card-icon" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+              <HelpCircle size={18} />
+            </span>
+            <span>
+              <span className="carousel-card-title">Uitleg</span>
+              <span className="carousel-card-sub">Leer de regels</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+          Statistieken
+        </h2>
+        <div className="carousel">
+          <div className="stat-card">
+            <span className="stat-card-value">{myRating ?? "—"}</span>
+            <span className="stat-card-label">Rating</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value">{myGames.length}</span>
+            <span className="stat-card-label">Actief</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value" style={{ color: "#9db98a" }}>{stats.wins}</span>
+            <span className="stat-card-label">Gewonnen</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value" style={{ color: "#e07a5f" }}>{stats.losses}</span>
+            <span className="stat-card-label">Verloren</span>
+          </div>
+        </div>
+      </section>
 
       {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
       {deleteError && <p className="text-sm" style={{ color: "#e07a5f" }}>{deleteError}</p>}
