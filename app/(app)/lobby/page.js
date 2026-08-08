@@ -28,6 +28,7 @@ export default function LobbyPage() {
   const [deleteError, setDeleteError] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [myRating, setMyRating] = useState(null);
+  const [myGamesTab, setMyGamesTab] = useState("mine"); // "mine" | "theirs"
 
   useEffect(() => {
     let channel;
@@ -199,7 +200,20 @@ export default function LobbyPage() {
     await refreshGames(user.id);
   }
 
+  // Bepaalt of jij nu iets moet doen in deze partij — bij lokaal
+  // pass-and-play speel je altijd allebei de kanten, dus die staat
+  // hierbinnen altijd aan jouw kant, ongeacht wiens pion er nu aan zet is.
+  function needsMyAction(g) {
+    if (g.status !== "active") return false;
+    if (g.local_multiplayer) return true;
+    const myRoleInGame = g.player_a === user.id ? "A" : "B";
+    return g.turn === myRoleInGame;
+  }
+
   if (loading) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
+
+  const myTurnGames = myGames.filter(needsMyAction);
+  const theirTurnGames = myGames.filter((g) => !needsMyAction(g));
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-2xl mx-auto flex flex-col gap-6">
@@ -371,8 +385,27 @@ export default function LobbyPage() {
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
             Jouw partijen
           </h2>
+          <div className="flex items-center gap-2 mb-3">
+            <button
+              className={`btn ${myGamesTab === "mine" ? "btn-solid" : ""}`}
+              onClick={() => setMyGamesTab("mine")}
+            >
+              Jouw beurt ({myTurnGames.length})
+            </button>
+            <button
+              className={`btn ${myGamesTab === "theirs" ? "btn-solid" : ""}`}
+              onClick={() => setMyGamesTab("theirs")}
+            >
+              Beurt tegenstander ({theirTurnGames.length})
+            </button>
+          </div>
+          {(myGamesTab === "mine" ? myTurnGames : theirTurnGames).length === 0 && (
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              {myGamesTab === "mine" ? "Geen partijen waar jij aan zet bent." : "Geen partijen waar je op iemand wacht."}
+            </p>
+          )}
           <ul className="flex flex-col gap-2">
-            {myGames.map((g) => {
+            {(myGamesTab === "mine" ? myTurnGames : theirTurnGames).map((g) => {
               const opponentName = g.vs_computer
                 ? "Computer"
                 : g.local_multiplayer
@@ -380,8 +413,6 @@ export default function LobbyPage() {
                   : (g.player_a === user.id ? g.b?.username : g.a?.username);
               const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
               const canDelete = g.status === "waiting" && g.player_a === user.id;
-              const myRoleInGame = g.player_a === user.id ? "A" : "B";
-              const isMyTurn = g.status === "active" && g.turn === myRoleInGame;
               return (
                 <li
                   key={g.id}
@@ -398,7 +429,6 @@ export default function LobbyPage() {
                     ) : g.local_multiplayer ? (
                       <Badge tone="neutral"><Smartphone size={12} /> lokaal</Badge>
                     ) : null}
-                    {isMyTurn && <Badge tone="turn">Jouw beurt!</Badge>}
                   </span>
                   {canDelete && (
                     <div data-menu-id={g.id} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
