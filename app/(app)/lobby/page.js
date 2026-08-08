@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle } from "lucide-react";
+import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -16,7 +16,7 @@ export default function LobbyPage() {
   const [myGames, setMyGames] = useState([]);
   const [archivedGames, setArchivedGames] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newGameStep, setNewGameStep] = useState(null); // null | "choose" | "invite" | "computer" | "local"
+  const [newGameStep, setNewGameStep] = useState(null); // null | "invite" | "computer" | "local"
   const [localNameA, setLocalNameA] = useState("");
   const [localNameB, setLocalNameB] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,7 +29,7 @@ export default function LobbyPage() {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [myRating, setMyRating] = useState(null);
   const [stats, setStats] = useState({ wins: 0, losses: 0 });
-  const [consumedNewGameParam, setConsumedNewGameParam] = useState(false);
+  const [friendsList, setFriendsList] = useState([]);
 
   useEffect(() => {
     let channel;
@@ -78,10 +78,25 @@ export default function LobbyPage() {
     });
   }
 
+  // Voor de "Vriend uitnodigen"-stap: je eigen vriendenlijst, zodat je
+  // meteen kunt aantikken i.p.v. eerst een gebruikersnaam te moeten typen.
+  async function refreshFriendsList(userId) {
+    const { data } = await supabase
+      .from("friendships")
+      .select("requester_id, addressee_id, requester:requester_id(id, username, rating), addressee:addressee_id(id, username, rating)")
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+    const rows = (data || [])
+      .map((r) => (r.requester_id === userId ? r.addressee : r.requester))
+      .filter(Boolean);
+    setFriendsList(rows);
+  }
+
   async function refreshGames(userId) {
     const { data: profile } = await supabase.from("profiles").select("rating").eq("id", userId).single();
     setMyRating(profile?.rating ?? null);
     refreshStats(userId);
+    refreshFriendsList(userId);
 
     const { data: waiting } = await supabase
       .from("games")
@@ -281,15 +296,6 @@ export default function LobbyPage() {
 
   if (loading) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
-  // De "Nieuwe partij"-knop in de vaste mobiele onderbalk (layout.js) is
-  // overal in de app zichtbaar en stuurt hierheen met ?newGame=1, zodat 'm
-  // direct de kiezer opent i.p.v. eerst alleen naar de lobby te navigeren.
-  if (!consumedNewGameParam && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("newGame") === "1") {
-    setConsumedNewGameParam(true);
-    setNewGameStep("choose");
-    window.history.replaceState(null, "", "/lobby");
-  }
-
   const myTurnGames = myGames.filter(needsMyAction);
   const theirTurnGames = myGames.filter((g) => !needsMyAction(g));
 
@@ -307,23 +313,6 @@ export default function LobbyPage() {
               <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>Nieuwe partij</h2>
               <button className="btn btn-icon" onClick={closeNewGameModal}><X size={16} /></button>
             </div>
-
-            {newGameStep === "choose" && (
-              <div className="flex flex-col gap-2">
-                <button className="btn btn-solid" onClick={() => createGame()}>
-                  <Play size={15} /> Open partij starten
-                </button>
-                <button className="btn" onClick={() => setNewGameStep("invite")}>
-                  <UserPlus size={15} /> Speler uitnodigen
-                </button>
-                <button className="btn" onClick={() => setNewGameStep("computer")}>
-                  <Cpu size={15} /> Tegen de computer
-                </button>
-                <button className="btn" onClick={() => setNewGameStep("local")}>
-                  <Smartphone size={15} /> Lokaal (1 apparaat)
-                </button>
-              </div>
-            )}
 
             {newGameStep === "local" && (
               <div className="flex flex-col gap-3">
@@ -377,6 +366,25 @@ export default function LobbyPage() {
 
             {newGameStep === "invite" && (
               <div className="flex flex-col gap-3">
+                {friendsList.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>Jouw vrienden</p>
+                    <ul className="flex flex-col gap-2" style={{ maxHeight: 220, overflowY: "auto" }}>
+                      {friendsList.map((f) => (
+                        <li key={f.id} className="flex items-center justify-between text-sm">
+                          <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                            <Avatar username={f.username} />
+                            {f.username} <Rating value={f.rating} />
+                          </span>
+                          <button className="btn" onClick={() => createGame(f.id)}>
+                            <UserPlus size={15} /> Uitnodigen
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>Of zoek iemand anders op</p>
+                  </div>
+                )}
                 <form onSubmit={searchUsers} className="flex items-center gap-2">
                   <input
                     type="text"
@@ -384,7 +392,7 @@ export default function LobbyPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Zoek op gebruikersnaam..."
                     className="input flex-1"
-                    autoFocus
+                    autoFocus={friendsList.length === 0}
                   />
                   <button className="btn btn-icon" type="submit" disabled={searching}><Search size={15} /></button>
                 </form>
@@ -409,19 +417,51 @@ export default function LobbyPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold uppercase tracking-widest flex items-center gap-2">
-          Lobby
-          {myRating != null && (
-            <span className="text-xs mono" style={{ color: "var(--muted)", fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>
-              jouw rating: {myRating}
-            </span>
-          )}
-        </h1>
-        <button className="btn btn-solid" onClick={() => setNewGameStep("choose")}>
-          <Plus size={16} /> Nieuwe partij
-        </button>
-      </div>
+      {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
+      {deleteError && <p className="text-sm" style={{ color: "#e07a5f" }}>{deleteError}</p>}
+
+      {invites.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+            Uitnodigingen voor jou
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {invites.map((g) => (
+              <li key={g.id} className="flex items-center justify-between text-sm">
+                <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                  <Avatar username={g.profiles?.username} />
+                  {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> nodigt je uit
+                </span>
+                <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
+                  <Check size={15} /> {joiningId === g.id ? "Bezig..." : "Accepteren"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {myTurnGames.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+            Jouw beurt
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {myTurnGames.map((g) => renderMyGameRow(g))}
+          </ul>
+        </section>
+      )}
+
+      {theirTurnGames.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+            Tegenstander aan zet
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {theirTurnGames.map((g) => renderMyGameRow(g))}
+          </ul>
+        </section>
+      )}
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
@@ -499,52 +539,6 @@ export default function LobbyPage() {
           </div>
         </div>
       </section>
-
-      {joinError && <p className="text-sm" style={{ color: "#e07a5f" }}>{joinError}</p>}
-      {deleteError && <p className="text-sm" style={{ color: "#e07a5f" }}>{deleteError}</p>}
-
-      {invites.length > 0 && (
-        <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Uitnodigingen voor jou
-          </h2>
-          <ul className="flex flex-col gap-2">
-            {invites.map((g) => (
-              <li key={g.id} className="flex items-center justify-between text-sm">
-                <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
-                  <Avatar username={g.profiles?.username} />
-                  {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> nodigt je uit
-                </span>
-                <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
-                  <Check size={15} /> {joiningId === g.id ? "Bezig..." : "Accepteren"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {myTurnGames.length > 0 && (
-        <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Jouw beurt
-          </h2>
-          <ul className="flex flex-col gap-2">
-            {myTurnGames.map((g) => renderMyGameRow(g))}
-          </ul>
-        </section>
-      )}
-
-      {theirTurnGames.length > 0 && (
-        <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Tegenstander aan zet
-          </h2>
-          <ul className="flex flex-col gap-2">
-            {theirTurnGames.map((g) => renderMyGameRow(g))}
-          </ul>
-        </section>
-      )}
 
       {archivedGames.length > 0 && (
         <section className="panel">

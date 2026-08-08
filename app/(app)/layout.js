@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, Plus, MoreHorizontal } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 
@@ -22,14 +22,14 @@ export default function AppLayout({ children }) {
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
-  // Sluit het mobiele menu automatisch zodra er (client-side) genavigeerd
+  // Sluit het account-menu automatisch zodra er (client-side) genavigeerd
   // wordt, zodat het niet openstaat blijft na het kiezen van een link.
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
-    setMobileMenuOpen(false);
+    setAccountMenuOpen(false);
   }
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function AppLayout({ children }) {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from("profiles").select("username").eq("id", user.id).single();
+      const { data } = await supabase.from("profiles").select("username, avatar_url").eq("id", user.id).single();
       if (!active) return;
       setUser(user);
       setProfile(data);
@@ -110,20 +110,10 @@ export default function AppLayout({ children }) {
   }
 
   const isAdmin = profile?.username === "JorADMIN";
-  // De spelpagina heeft al haar eigen vaste actiebalk onderin (STOP,
-  // hulpstuk plaatsen, ...) — daar zou de algemene onderbalk mee overlappen.
-  // Net als bij chess.com zelf: tijdens het spelen verdwijnt de gewone
-  // navigatie voor de in-spel-bediening.
-  const showMobileChrome = !pathname.startsWith("/game/");
-
-  function goNewGame() {
-    router.push("/lobby?newGame=1");
-  }
 
   return (
     <div className="app-shell">
-      {/* Desktop-navigatie — op mobiel vervangen door de vaste onderbalk
-          hieronder (zie .sidebar { display:none } in globals.css). */}
+      {/* Desktop-navigatie — op mobiel vervangen door de kopbalk hieronder. */}
       <nav className="sidebar">
         <div className="sidebar-top">
           <div className="sidebar-brand">
@@ -149,6 +139,12 @@ export default function AppLayout({ children }) {
               </li>
             ))}
             <li>
+              <Link href="/profile" className={`sidebar-link${pathname.startsWith("/profile") ? " active" : ""}`}>
+                <UserCircle size={17} strokeWidth={2} />
+                Profiel
+              </Link>
+            </li>
+            <li>
               <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={openFeedback}>
                 <MessageSquarePlus size={17} strokeWidth={2} />
                 Feedback
@@ -169,7 +165,7 @@ export default function AppLayout({ children }) {
           <div className="sidebar-footer">
             {profile && (
               <span className="mono sidebar-username" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Avatar username={profile.username} size={22} />
+                <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={22} />
                 {profile.username}
               </span>
             )}
@@ -181,78 +177,72 @@ export default function AppLayout({ children }) {
         </div>
       </nav>
 
-      {/* Mobiele kopbalk — puur branding, navigatie zit onderin. Op de
-          spelpagina weg: die heeft de ruimte harder nodig (zie
-          showMobileChrome hierboven) en heeft al haar eigen koppen. */}
-      {showMobileChrome && (
-        <header className="mobile-topbar">
-          <Logo size={18} />
-          {profile && <Avatar username={profile.username} size={24} />}
-        </header>
-      )}
+      {/* Mobiele kopbalk — branding, navigatie-iconen en account-avatar.
+          Altijd zichtbaar, ook op de spelpagina: die heeft verder geen
+          eigen manier om naar een andere pagina te gaan (de vaste
+          actiebalk daar onderin is puur voor de zet zelf). */}
+      <header className="mobile-topbar">
+        <Logo size={16} />
+        <div className="mobile-topbar-nav">
+          {LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`mobile-topbar-tab${pathname.startsWith(link.href) ? " active" : ""}`}
+              aria-label={link.label}
+            >
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                <link.icon size={19} strokeWidth={2} />
+                {link.href === "/friends" && pendingRequests > 0 && (
+                  <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
+                )}
+              </span>
+            </Link>
+          ))}
+        </div>
+        <button
+          className="mobile-topbar-avatar"
+          onClick={() => setAccountMenuOpen(true)}
+          aria-label="Account-menu openen"
+        >
+          {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={26} />}
+        </button>
+      </header>
 
-      <main className={`app-content${showMobileChrome ? " app-content-with-bottom-nav" : ""}`}>{children}</main>
+      <main className="app-content">{children}</main>
 
-      {/* Vaste onderbalk op mobiel, net als chess.com: een grote
-          "Nieuwe partij"-knop boven een rij tabs. Vervangt het oude
-          hamburgermenu volledig. */}
-      {showMobileChrome && (
-        <nav className="bottom-nav">
-          <button className="btn btn-solid bottom-nav-play" onClick={goNewGame}>
-            <Plus size={16} /> Nieuwe partij
-          </button>
-          <div className="bottom-nav-tabs">
-            {LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`bottom-nav-tab${pathname.startsWith(link.href) ? " active" : ""}`}
-              >
-                <span style={{ position: "relative", display: "inline-flex" }}>
-                  <link.icon size={19} strokeWidth={2} />
-                  {link.href === "/friends" && pendingRequests > 0 && (
-                    <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
-                  )}
-                </span>
-                {link.label}
-              </Link>
-            ))}
-            <button className="bottom-nav-tab" onClick={() => setMobileMenuOpen(true)}>
-              <MoreHorizontal size={19} strokeWidth={2} />
-              Meer
-            </button>
-          </div>
-        </nav>
-      )}
-
-      {mobileMenuOpen && (
+      {accountMenuOpen && (
         <div
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-            display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 55,
+            display: "flex", alignItems: "flex-start", justifyContent: "flex-end", zIndex: 55,
           }}
-          onClick={() => setMobileMenuOpen(false)}
+          onClick={() => setAccountMenuOpen(false)}
         >
           <div
             className="panel"
-            style={{ width: "100%", maxWidth: 480, borderRadius: "12px 12px 0 0", display: "flex", flexDirection: "column", gap: 4 }}
+            style={{ width: "100%", maxWidth: 280, margin: "8px 8px 0 0", display: "flex", flexDirection: "column", gap: 4 }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
               {profile && (
                 <span className="mono" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
-                  <Avatar username={profile.username} size={24} />
+                  <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={24} />
                   {profile.username}
                 </span>
               )}
-              <button className="btn btn-icon" onClick={() => setMobileMenuOpen(false)}><X size={16} /></button>
+              <button className="btn btn-icon" onClick={() => setAccountMenuOpen(false)}><X size={16} /></button>
             </div>
-            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={() => { setMobileMenuOpen(false); openFeedback(); }}>
+            <Link href="/profile" className="sidebar-link" onClick={() => setAccountMenuOpen(false)}>
+              <UserCircle size={17} strokeWidth={2} />
+              Profiel
+            </Link>
+            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={() => { setAccountMenuOpen(false); openFeedback(); }}>
               <MessageSquarePlus size={17} strokeWidth={2} />
               Feedback
             </button>
             {isAdmin && (
-              <Link href="/admin" className="sidebar-link" onClick={() => setMobileMenuOpen(false)}>
+              <Link href="/admin" className="sidebar-link" onClick={() => setAccountMenuOpen(false)}>
                 <ShieldCheck size={17} strokeWidth={2} />
                 Admin
               </Link>

@@ -481,13 +481,10 @@ body {
   min-width: 0;
 }
 
-/* Mobiele kopbalk (puur branding) en vaste onderbalk (navigatie + "Nieuwe
-   partij") — op desktop verborgen, daar doet de zijbalk al alles. */
+/* Mobiele kopbalk: branding, navigatie-iconen en de account-avatar. Altijd
+   zichtbaar op mobiel (ook op de spelpagina — dat is nu juist de enige
+   manier om daar weg te navigeren), op desktop doet de zijbalk al alles. */
 .mobile-topbar {
-  display: none;
-}
-
-.bottom-nav {
   display: none;
 }
 
@@ -501,56 +498,40 @@ body {
   .mobile-topbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
     position: sticky;
     top: 0;
     z-index: 40;
     background: var(--panel);
     border-bottom: 1px solid var(--panel-line);
-    padding: 12px 16px;
+    padding: 10px 16px;
   }
-  .app-content-with-bottom-nav {
-    padding-bottom: 122px;
-  }
-  .bottom-nav {
+  .mobile-topbar-nav {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 40;
-    background: var(--panel);
-    border-top: 2px solid var(--walnut);
-    padding: 10px 12px calc(6px + env(safe-area-inset-bottom));
-    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.4);
-  }
-  .bottom-nav-play {
-    width: 100%;
-  }
-  .bottom-nav-tabs {
-    display: flex;
-    align-items: stretch;
-  }
-  .bottom-nav-tab {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 3px;
-    padding: 4px 0 2px;
+    gap: 4px;
+    flex: 1;
+    justify-content: center;
+  }
+  .mobile-topbar-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 6px;
     color: var(--muted);
-    text-decoration: none;
-    font-size: 10px;
-    letter-spacing: 0.02em;
+  }
+  .mobile-topbar-tab.active {
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .mobile-topbar-avatar {
+    display: flex;
     background: none;
     border: none;
+    padding: 0;
     cursor: pointer;
-    font-family: inherit;
-  }
-  .bottom-nav-tab.active {
-    color: var(--accent);
+    flex-shrink: 0;
   }
 }
 
