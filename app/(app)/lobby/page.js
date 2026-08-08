@@ -209,7 +209,7 @@ export default function LobbyPage() {
     return g.turn === myRoleInGame;
   }
 
-  // Gedeeld tussen de "Jouw beurt"- en "Beurt tegenstander"-lijst hieronder.
+  // Gedeeld tussen de "Jouw beurt"- en "Tegenstander aan zet"-lijst hieronder.
   function renderMyGameRow(g) {
     const opponentName = g.vs_computer
       ? "Computer"
@@ -443,7 +443,7 @@ export default function LobbyPage() {
       {theirTurnGames.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Beurt tegenstander
+            Tegenstander aan zet
           </h2>
           <ul className="flex flex-col gap-2">
             {theirTurnGames.map((g) => renderMyGameRow(g))}
