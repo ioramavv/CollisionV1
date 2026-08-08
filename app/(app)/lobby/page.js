@@ -28,7 +28,6 @@ export default function LobbyPage() {
   const [deleteError, setDeleteError] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [myRating, setMyRating] = useState(null);
-  const [myGamesTab, setMyGamesTab] = useState("mine"); // "mine" | "theirs"
 
   useEffect(() => {
     let channel;
@@ -210,6 +209,56 @@ export default function LobbyPage() {
     return g.turn === myRoleInGame;
   }
 
+  // Gedeeld tussen de "Jouw beurt"- en "Beurt tegenstander"-lijst hieronder.
+  function renderMyGameRow(g) {
+    const opponentName = g.vs_computer
+      ? "Computer"
+      : g.local_multiplayer
+        ? (g.local_name_b || "Speler 2")
+        : (g.player_a === user.id ? g.b?.username : g.a?.username);
+    const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
+    const canDelete = g.status === "waiting" && g.player_a === user.id;
+    return (
+      <li
+        key={g.id}
+        className="flex items-center justify-between text-sm"
+        style={{ cursor: "pointer" }}
+        onClick={() => router.push(`/game/${g.id}`)}
+      >
+        <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+          <Avatar username={opponentName} />
+          {opponentName ? `Partij met ${opponentName}` : "Partij"} <Rating value={opponentRating} />
+          {g.status === "waiting" && <Badge tone="waiting">wacht op tegenstander</Badge>}
+          {g.vs_computer ? (
+            <Badge tone="warning"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"} (bèta)</Badge>
+          ) : g.local_multiplayer ? (
+            <Badge tone="neutral"><Smartphone size={12} /> lokaal</Badge>
+          ) : null}
+        </span>
+        {canDelete && (
+          <div data-menu-id={g.id} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn btn-icon" onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}>
+              <MoreVertical size={16} />
+            </button>
+            {openMenuId === g.id && (
+              <div
+                className="panel"
+                style={{
+                  position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 20,
+                  padding: 8, display: "flex", flexDirection: "column", gap: 4, minWidth: 150,
+                }}
+              >
+                <button className="btn btn-danger" onClick={() => { setOpenMenuId(null); deleteGame(g.id); }} disabled={deletingId === g.id}>
+                  <Trash2 size={14} /> {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </li>
+    );
+  }
+
   if (loading) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
   const myTurnGames = myGames.filter(needsMyAction);
@@ -380,79 +429,24 @@ export default function LobbyPage() {
         </section>
       )}
 
-      {myGames.length > 0 && (
+      {myTurnGames.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Jouw partijen
+            Jouw beurt
           </h2>
-          <div className="flex items-center gap-2 mb-3">
-            <button
-              className={`btn ${myGamesTab === "mine" ? "btn-solid" : ""}`}
-              onClick={() => setMyGamesTab("mine")}
-            >
-              Jouw beurt ({myTurnGames.length})
-            </button>
-            <button
-              className={`btn ${myGamesTab === "theirs" ? "btn-solid" : ""}`}
-              onClick={() => setMyGamesTab("theirs")}
-            >
-              Beurt tegenstander ({theirTurnGames.length})
-            </button>
-          </div>
-          {(myGamesTab === "mine" ? myTurnGames : theirTurnGames).length === 0 && (
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              {myGamesTab === "mine" ? "Geen partijen waar jij aan zet bent." : "Geen partijen waar je op iemand wacht."}
-            </p>
-          )}
           <ul className="flex flex-col gap-2">
-            {(myGamesTab === "mine" ? myTurnGames : theirTurnGames).map((g) => {
-              const opponentName = g.vs_computer
-                ? "Computer"
-                : g.local_multiplayer
-                  ? (g.local_name_b || "Speler 2")
-                  : (g.player_a === user.id ? g.b?.username : g.a?.username);
-              const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
-              const canDelete = g.status === "waiting" && g.player_a === user.id;
-              return (
-                <li
-                  key={g.id}
-                  className="flex items-center justify-between text-sm"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => router.push(`/game/${g.id}`)}
-                >
-                  <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
-                    <Avatar username={opponentName} />
-                    {opponentName ? `Partij met ${opponentName}` : "Partij"} <Rating value={opponentRating} />
-                    {g.status === "waiting" && <Badge tone="waiting">wacht op tegenstander</Badge>}
-                    {g.vs_computer ? (
-                      <Badge tone="warning"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"} (bèta)</Badge>
-                    ) : g.local_multiplayer ? (
-                      <Badge tone="neutral"><Smartphone size={12} /> lokaal</Badge>
-                    ) : null}
-                  </span>
-                  {canDelete && (
-                    <div data-menu-id={g.id} style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
-                      <button className="btn btn-icon" onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}>
-                        <MoreVertical size={16} />
-                      </button>
-                      {openMenuId === g.id && (
-                        <div
-                          className="panel"
-                          style={{
-                            position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 20,
-                            padding: 8, display: "flex", flexDirection: "column", gap: 4, minWidth: 150,
-                          }}
-                        >
-                          <button className="btn btn-danger" onClick={() => { setOpenMenuId(null); deleteGame(g.id); }} disabled={deletingId === g.id}>
-                            <Trash2 size={14} /> {deletingId === g.id ? "Bezig..." : "Verwijderen"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
+            {myTurnGames.map((g) => renderMyGameRow(g))}
+          </ul>
+        </section>
+      )}
+
+      {theirTurnGames.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+            Beurt tegenstander
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {theirTurnGames.map((g) => renderMyGameRow(g))}
           </ul>
         </section>
       )}
@@ -493,29 +487,26 @@ export default function LobbyPage() {
         </section>
       )}
 
-      <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Open partijen
-        </h2>
-        {openGames.length === 0 && (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Geen open partijen — maak er zelf een aan.
-          </p>
-        )}
-        <ul className="flex flex-col gap-2">
-          {openGames.map((g) => (
-            <li key={g.id} className="flex items-center justify-between text-sm">
-              <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
-                <Avatar username={g.profiles?.username} />
-                {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> wacht op een tegenstander
-              </span>
-              <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
-                <Play size={15} /> {joiningId === g.id ? "Bezig..." : "Meespelen"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {openGames.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+            Open partijen
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {openGames.map((g) => (
+              <li key={g.id} className="flex items-center justify-between text-sm">
+                <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
+                  <Avatar username={g.profiles?.username} />
+                  {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> wacht op een tegenstander
+                </span>
+                <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
+                  <Play size={15} /> {joiningId === g.id ? "Bezig..." : "Meespelen"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="panel">
         <details>
