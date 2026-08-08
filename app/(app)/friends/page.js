@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserPlus, Check, X, Ban, UserMinus } from "lucide-react";
+import QRCode from "qrcode";
+import { Search, UserPlus, Check, X, Ban, UserMinus, QrCode, Copy, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Rating, BoardLoader } from "@/lib/ui";
 
 export default function FriendsPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -16,6 +18,8 @@ export default function FriendsPage() {
   const [outgoing, setOutgoing] = useState([]);
   const [friends, setFriends] = useState([]);
   const [error, setError] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     let channel;
@@ -24,6 +28,9 @@ export default function FriendsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       setUser(user);
+
+      const { data: profileData } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle();
+      setProfile(profileData);
 
       await refreshFriends(user.id);
       setLoading(false);
@@ -37,6 +44,39 @@ export default function FriendsPage() {
     init();
     return () => { if (channel) supabase.removeChannel(channel); };
   }, [router]);
+
+  // window/navigator zijn pas op de client beschikbaar, maar deze pagina
+  // rendert sowieso pas inhoud na de auth-check hierboven (tot die klaar is
+  // staat er alleen de BoardLoader) — dus geen hydratatie-mismatch-risico
+  // door dit gewoon inline tijdens render te lezen i.p.v. via een effect.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const canShare = typeof navigator !== "undefined" && !!navigator.share;
+  const inviteUrl = profile?.username && origin ? `${origin}/invite/${encodeURIComponent(profile.username)}` : null;
+
+  useEffect(() => {
+    if (!inviteUrl) return;
+    let active = true;
+    QRCode.toDataURL(inviteUrl, { margin: 1, width: 180, color: { dark: "#17140f", light: "#f0ece2" } })
+      .then((url) => { if (active) setQrDataUrl(url); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [inviteUrl]);
+
+  async function copyInviteLink() {
+    if (!inviteUrl) return;
+    await navigator.clipboard.writeText(inviteUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
+  async function shareInviteLink() {
+    if (!inviteUrl) return;
+    try {
+      await navigator.share({ title: "Collision", text: "Speel Collision met mij — word mijn vriend:", url: inviteUrl });
+    } catch {
+      // Gebruiker annuleerde de deel-sheet — geen actie nodig.
+    }
+  }
 
   async function refreshFriends(userId) {
     const { data } = await supabase
@@ -109,6 +149,43 @@ export default function FriendsPage() {
       <h1 className="text-xl font-extrabold uppercase tracking-widest">Vrienden</h1>
 
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
+          <QrCode size={15} /> Uitnodigen via link
+        </h2>
+        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+          Stuur deze link naar een vriend via WhatsApp, Signal, of laat &apos;m de QR-code scannen — jullie worden dan automatisch vrienden.
+        </p>
+        {inviteUrl && (
+          <div className="flex flex-col md:flex-row gap-3 items-center md:items-start">
+            {qrDataUrl && (
+              <img
+                src={qrDataUrl}
+                alt="QR-code voor je uitnodigingslink"
+                width={140}
+                height={140}
+                style={{ borderRadius: 8, border: "1px solid var(--panel-line)", flexShrink: 0 }}
+              />
+            )}
+            <div className="flex flex-col gap-2 flex-1" style={{ minWidth: 0, width: "100%" }}>
+              <div className="input mono text-xs" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {inviteUrl}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button className="btn" onClick={copyInviteLink}>
+                  {linkCopied ? <Check size={15} /> : <Copy size={15} />} {linkCopied ? "Gekopieerd!" : "Kopieer link"}
+                </button>
+                {canShare && (
+                  <button className="btn btn-solid" onClick={shareInviteLink}>
+                    <Share2 size={15} /> Delen
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
