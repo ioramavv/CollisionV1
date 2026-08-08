@@ -148,9 +148,7 @@ body {
 .badge-neutral { background: var(--panel-line); color: var(--muted); }
 .badge-active { background: rgba(157, 185, 138, 0.18); color: #9db98a; }
 .badge-waiting { background: var(--accent-dim); color: var(--accent); }
-.badge-open { background: rgba(143, 180, 214, 0.18); color: #8fb4d6; }
 .badge-closed { background: rgba(214, 154, 184, 0.18); color: #d69ab8; }
-.badge-turn { background: var(--accent); color: #17140f; }
 .badge-online { background: rgba(157, 185, 138, 0.18); color: #9db98a; }
 .badge-offline { background: var(--panel-line); color: var(--muted); }
 .badge-warning { background: rgba(224, 178, 76, 0.18); color: #e0b24c; }
