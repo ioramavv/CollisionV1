@@ -2,9 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, ArrowLeftRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
+import { rememberDevSession, isDevAccount, otherDevAccount, getDevSession } from "@/lib/devAccountSwitch";
 
 const LINKS = [
   { href: "/lobby", label: "Lobby", icon: Swords },
@@ -24,6 +25,7 @@ export default function AppLayout({ children }) {
   const [feedbackError, setFeedbackError] = useState(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [switchingAccount, setSwitchingAccount] = useState(false);
   // Sluit het account-menu automatisch zodra er (client-side) genavigeerd
   // wordt, zodat het niet openstaat blijft na het kiezen van een link.
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -53,6 +55,14 @@ export default function AppLayout({ children }) {
       if (!active) return;
       setUser(user);
       setProfile(data);
+
+      // Bewaart (ververst) de sessie voor de snelle account-wisselknop
+      // hieronder — puur dev-gemak, doet niets voor andere gebruikers dan
+      // JorADMIN/Joram (zie lib/devAccountSwitch.js).
+      if (isDevAccount(data?.username)) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (active && sessionData?.session) rememberDevSession(data.username, sessionData.session);
+      }
 
       refreshPendingRequests(user.id);
 
@@ -89,6 +99,24 @@ export default function AppLayout({ children }) {
     router.push("/");
   }
 
+  // Zet de bewaarde sessie van het andere dev-account (JorADMIN <-> Joram)
+  // als actieve sessie en herlaadt de pagina — sneller dan uitloggen en
+  // opnieuw inloggen tijdens het testen. Doet niets als er nog geen
+  // bewaarde sessie voor dat andere account is (dan moet er eerst één keer
+  // mee ingelogd worden).
+  async function switchDevAccount() {
+    const other = otherDevAccount(profile?.username);
+    const session = other && getDevSession(other);
+    if (!session) return;
+    setSwitchingAccount(true);
+    const { error } = await supabase.auth.setSession(session);
+    if (error) {
+      setSwitchingAccount(false);
+      return;
+    }
+    window.location.href = "/lobby";
+  }
+
   function openFeedback() {
     setFeedbackText("");
     setFeedbackSent(false);
@@ -110,6 +138,10 @@ export default function AppLayout({ children }) {
   }
 
   const isAdmin = profile?.username === "JorADMIN";
+  // Alleen gezet als er een bewaarde sessie voor het ANDERE dev-account
+  // klaarstaat (zie lib/devAccountSwitch.js) — pas dan is er iets om naar
+  // te wisselen.
+  const switchTarget = otherDevAccount(profile?.username);
   // De spelpagina heeft geen ruimte voor de vaste onderbalk — die zou
   // overlappen met haar eigen vaste actiebalk (STOP, hulpstuk plaatsen).
   // Daarom krijgt de kopbalk daar zelf de navigatie-tabs; op alle andere
@@ -173,6 +205,12 @@ export default function AppLayout({ children }) {
                 <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={22} />
                 {profile.username}
               </span>
+            )}
+            {switchTarget && (
+              <button className="btn" onClick={switchDevAccount} disabled={switchingAccount}>
+                <ArrowLeftRight size={15} strokeWidth={2} />
+                {switchingAccount ? "Bezig..." : `Wissel naar ${switchTarget}`}
+              </button>
             )}
             <button className="btn" onClick={signOut}>
               <LogOut size={15} strokeWidth={2} />
@@ -280,6 +318,12 @@ export default function AppLayout({ children }) {
                 <ShieldCheck size={17} strokeWidth={2} />
                 Admin
               </Link>
+            )}
+            {switchTarget && (
+              <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={switchDevAccount} disabled={switchingAccount}>
+                <ArrowLeftRight size={17} strokeWidth={2} />
+                {switchingAccount ? "Bezig..." : `Wissel naar ${switchTarget}`}
+              </button>
             )}
             <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
               <LogOut size={17} strokeWidth={2} />
