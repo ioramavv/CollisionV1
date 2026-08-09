@@ -36,6 +36,18 @@ body {
   background-attachment: fixed;
 }
 
+/* Voor elementen die zelf klikbaar zijn (onClick) maar geen echte <a>/
+   <button> zijn, zoals een rij in een lijst. Zonder dit kan een tik op de
+   tekst op Android Chrome als tekstselectie gezien worden, waarna Chrome
+   er een "Zoeken met Google"-balk overheen toont — user-select: none
+   voorkomt die selectie (en daarmee die balk) helemaal. */
+.clickable-row {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
