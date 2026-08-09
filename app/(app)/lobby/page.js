@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle } from "lucide-react";
+import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle, ArrowLeftRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { BUGFIXES } from "@/lib/bugfixes";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
+import { getDevSession } from "@/lib/devAccountSwitch";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -28,8 +29,10 @@ export default function LobbyPage() {
   const [deleteError, setDeleteError] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [myRating, setMyRating] = useState(null);
+  const [myUsername, setMyUsername] = useState(null);
   const [stats, setStats] = useState({ wins: 0, losses: 0 });
   const [friendsList, setFriendsList] = useState([]);
+  const [switchingAccount, setSwitchingAccount] = useState(false);
 
   useEffect(() => {
     let channel;
@@ -93,8 +96,9 @@ export default function LobbyPage() {
   }
 
   async function refreshGames(userId) {
-    const { data: profile } = await supabase.from("profiles").select("rating").eq("id", userId).single();
+    const { data: profile } = await supabase.from("profiles").select("rating, username").eq("id", userId).single();
     setMyRating(profile?.rating ?? null);
+    setMyUsername(profile?.username ?? null);
     refreshStats(userId);
     refreshFriendsList(userId);
 
@@ -142,6 +146,21 @@ export default function LobbyPage() {
     const byId = Object.fromEntries((games || []).map((g) => [g.id, g]));
 
     setArchivedGames(entries.map((e) => ({ ...e, game: byId[e.game_id] })).filter((e) => e.game));
+  }
+
+  // Dev-gemak: direct wisselen naar het "JorADMIN"-account, zonder uit te
+  // loggen. Vereist dat er ooit al eens (op dit apparaat) met dat account
+  // is ingelogd — pas dan staat de sessie klaar (zie lib/devAccountSwitch.js).
+  async function switchToJorADMIN() {
+    const session = getDevSession("JorADMIN");
+    if (!session) return;
+    setSwitchingAccount(true);
+    const { error } = await supabase.auth.setSession(session);
+    if (error) {
+      setSwitchingAccount(false);
+      return;
+    }
+    window.location.reload();
   }
 
   async function createGame(invitedId = null) {
@@ -414,6 +433,23 @@ export default function LobbyPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Dev-gemak: alleen zichtbaar voor het "Joram"-testaccount. Altijd
+          aanwezig (uitgeschakeld met uitleg zolang er nog geen bewaarde
+          sessie voor JorADMIN is — dan moet daar eerst één keer mee
+          ingelogd worden). */}
+      {myUsername === "Joram" && (
+        <div className="flex items-center justify-between">
+          <button
+            className="btn"
+            onClick={switchToJorADMIN}
+            disabled={switchingAccount || !getDevSession("JorADMIN")}
+            title={!getDevSession("JorADMIN") ? "Log eerst één keer in als JorADMIN om te kunnen wisselen" : undefined}
+          >
+            <ArrowLeftRight size={15} /> {switchingAccount ? "Bezig..." : "Wissel naar JorADMIN"}
+          </button>
         </div>
       )}
 

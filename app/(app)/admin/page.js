@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight } from "lucide-react";
+import { Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight, ArrowLeftRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
+import { getDevSession } from "@/lib/devAccountSwitch";
 
 // Beknopt overzicht: spelregel -> welke code/mechanic 'm afdwingt. Puur
 // referentiemateriaal voor de admin, geen live data dus geen state nodig.
@@ -29,6 +30,7 @@ export default function AdminPage() {
   const [activeGames, setActiveGames] = useState([]);
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [switchingAccount, setSwitchingAccount] = useState(false);
 
   useEffect(() => {
     let channel;
@@ -89,6 +91,21 @@ export default function AdminPage() {
     return () => { if (channel) supabase.removeChannel(channel); };
   }, [router]);
 
+  // Dev-gemak: direct wisselen naar het "Joram"-testaccount, zonder uit te
+  // loggen. Vereist dat er ooit al eens (op dit apparaat) met dat account
+  // is ingelogd — pas dan staat de sessie klaar (zie lib/devAccountSwitch.js).
+  async function switchToJoram() {
+    const session = getDevSession("Joram");
+    if (!session) return;
+    setSwitchingAccount(true);
+    const { error } = await supabase.auth.setSession(session);
+    if (error) {
+      setSwitchingAccount(false);
+      return;
+    }
+    window.location.href = "/lobby";
+  }
+
   async function deleteGame(gameId) {
     if (!window.confirm("Deze partij verwijderen?")) return;
     setError(null);
@@ -102,7 +119,21 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-3xl mx-auto flex flex-col gap-6">
-      <h1 className="text-xl font-extrabold uppercase tracking-widest">Admin</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-extrabold uppercase tracking-widest">Admin</h1>
+        {/* Dev-gemak: snel wisselen naar het "Joram"-testaccount. Altijd
+            zichtbaar (uitgeschakeld met uitleg zolang er nog geen bewaarde
+            sessie voor Joram is — dan moet daar eerst één keer mee
+            ingelogd worden). */}
+        <button
+          className="btn"
+          onClick={switchToJoram}
+          disabled={switchingAccount || !getDevSession("Joram")}
+          title={!getDevSession("Joram") ? "Log eerst één keer in als Joram om te kunnen wisselen" : undefined}
+        >
+          <ArrowLeftRight size={15} /> {switchingAccount ? "Bezig..." : "Wissel naar Joram"}
+        </button>
+      </div>
 
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
 
