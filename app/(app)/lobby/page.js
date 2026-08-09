@@ -275,8 +275,7 @@ export default function LobbyPage() {
     return (
       <li
         key={g.id}
-        className="flex items-center justify-between text-sm"
-        style={{ cursor: "pointer" }}
+        className="clickable-row flex items-center justify-between text-sm"
         onClick={() => router.push(`/game/${g.id}`)}
       >
         <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
