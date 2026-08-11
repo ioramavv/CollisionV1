@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, Megaphone } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 import { rememberDevSession, isDevAccount } from "@/lib/devAccountSwitch";
@@ -25,6 +25,7 @@ export default function AppLayout({ children }) {
   const [feedbackError, setFeedbackError] = useState(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [announcements, setAnnouncements] = useState([]);
   // Sluit het account-menu automatisch zodra er (client-side) genavigeerd
   // wordt, zodat het niet openstaat blijft na het kiezen van een link.
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -37,6 +38,7 @@ export default function AppLayout({ children }) {
     let active = true;
     let channel;
     let friendsChannel;
+    let announcementsChannel;
 
     async function refreshPendingRequests(userId) {
       const { count } = await supabase
@@ -45,6 +47,24 @@ export default function AppLayout({ children }) {
         .eq("addressee_id", userId)
         .eq("status", "pending");
       if (active) setPendingRequests(count || 0);
+    }
+
+    // Meldingen (zie admin-pagina) — wie een melding wegklikt, onthoudt dat
+    // zelf in localStorage; die blijft dus weg totdat er een nieuwe komt.
+    async function refreshAnnouncements() {
+      const { data } = await supabase
+        .from("announcements")
+        .select("id, message")
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (!active) return;
+      let dismissed = [];
+      try {
+        dismissed = JSON.parse(window.localStorage.getItem("collision-dismissed-announcements") || "[]");
+      } catch {
+        dismissed = [];
+      }
+      setAnnouncements((data || []).filter((a) => !dismissed.includes(a.id)));
     }
 
     (async () => {
@@ -64,6 +84,14 @@ export default function AppLayout({ children }) {
       }
 
       refreshPendingRequests(user.id);
+      refreshAnnouncements();
+
+      // Live bijwerken zodra de admin een melding plaatst, aan-/uitzet of
+      // verwijdert, zonder dat je de pagina hoeft te verversen.
+      announcementsChannel = supabase
+        .channel("announcements-live")
+        .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, refreshAnnouncements)
+        .subscribe();
 
       // Meldingsbolletje bij "Vrienden" — live bijgewerkt zodra er een
       // vriendverzoek binnenkomt, geaccepteerd of ingetrokken wordt.
@@ -90,8 +118,20 @@ export default function AppLayout({ children }) {
       active = false;
       if (channel) supabase.removeChannel(channel);
       if (friendsChannel) supabase.removeChannel(friendsChannel);
+      if (announcementsChannel) supabase.removeChannel(announcementsChannel);
     };
   }, []);
+
+  function dismissAnnouncement(id) {
+    setAnnouncements((list) => list.filter((a) => a.id !== id));
+    try {
+      const dismissed = JSON.parse(window.localStorage.getItem("collision-dismissed-announcements") || "[]");
+      window.localStorage.setItem("collision-dismissed-announcements", JSON.stringify([...dismissed, id]));
+    } catch {
+      // localStorage kan geblokkeerd zijn (privémodus e.d.) — dan komt de
+      // melding gewoon terug bij een volgend bezoek, geen harde fout waard.
+    }
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -236,7 +276,18 @@ export default function AppLayout({ children }) {
         </button>
       </header>
 
-      <main className={`app-content${!isGamePage ? " app-content-with-bottom-nav" : ""}`}>{children}</main>
+      <main className={`app-content${!isGamePage ? " app-content-with-bottom-nav" : ""}`}>
+        {announcements.map((a) => (
+          <div key={a.id} className="announcement-banner">
+            <Megaphone size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
+            <span>{a.message}</span>
+            <button className="announcement-banner-close" onClick={() => dismissAnnouncement(a.id)} aria-label="Melding sluiten">
+              <X size={15} />
+            </button>
+          </div>
+        ))}
+        {children}
+      </main>
 
       {/* Vaste onderbalk op mobiel, op alle pagina's behalve de spelpagina
           (zie isGamePage). Geen "Nieuwe partij"-knop meer (dubbelop met de
