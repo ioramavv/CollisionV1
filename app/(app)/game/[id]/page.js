@@ -615,8 +615,8 @@ export default function GamePage() {
               }}
               moveTargets={moveTargets}
               pendingTool={pendingPlacement ? { r: pendingPlacement.r, c: pendingPlacement.c, owner: effectiveRole } : null}
-              labelTopLeft={nameFor("A")}
-              labelBottomRight={nameFor("B")}
+              labelTopLeft={nameFor("B")}
+              labelBottomRight={nameFor("A")}
             />
             {myRole && !state.winner && (
               <button className="btn btn-icon btn-danger board-resign-btn" onClick={resign} title="Opgeven">
