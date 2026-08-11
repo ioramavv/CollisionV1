@@ -60,9 +60,9 @@ create policy "Gebruiker mag alleen eigen profiel aanmaken"
   with check (auth.uid() = id);
 
 select _drop_all_policies('profiles', 'UPDATE');
-create policy "Gebruiker mag alleen eigen profiel aanpassen"
+create policy "Gebruiker mag eigen profiel aanpassen, admin mag alle profielen aanpassen"
   on profiles for update
-  using (auth.uid() = id);
+  using (auth.uid() = id or is_admin());
 
 -- Automatisch een profiel aanmaken zodra iemand zich registreert
 create or replace function handle_new_user()
@@ -331,6 +331,11 @@ create policy "Alleen admin mag feedback lezen"
   on feedback for select
   using (is_admin());
 
+select _drop_all_policies('feedback', 'DELETE');
+create policy "Alleen admin mag feedback verwijderen"
+  on feedback for delete
+  using (is_admin());
+
 -- 6) Chat per partij. Alleen de twee spelers van die partij (en de admin,
 --    voor moderatie) mogen de berichten lezen; alleen de twee spelers
 --    mogen er zelf berichten in plaatsen.
@@ -366,8 +371,8 @@ create policy "Spelers mogen chatten in hun eigen partij"
     )
   );
 
--- 7) Realtime aanzetten voor de games-, friendships-, feedback- en
---    game_messages-tabellen
+-- 7) Realtime aanzetten voor de games-, friendships-, feedback-,
+--    game_messages- en announcements-tabellen
 create or replace function _ensure_realtime(p_table text)
 returns void as $$
 begin
@@ -384,6 +389,7 @@ select _ensure_realtime('games');
 select _ensure_realtime('friendships');
 select _ensure_realtime('feedback');
 select _ensure_realtime('game_messages');
+select _ensure_realtime('announcements');
 
 -- 8) Storage-bucket voor profielfoto's. Publiek leesbaar (avatars zijn
 --    sowieso al overal zichtbaar, net als usernames), maar iedereen mag
@@ -448,3 +454,39 @@ create policy "Gebruiker mag eigen afgeronde partij negeren"
         and (g.player_a = auth.uid() or g.player_b = auth.uid())
     )
   );
+
+-- 10) Meldingen (announcements). Door de admin opgestelde berichten die als
+--     dismissable balkje bovenaan bij iedereen te zien zijn (zie de
+--     kopbalk in app/(app)/layout.js) — bv. voor onderhoud of nieuwe
+--     features. `active` bepaalt of een melding nog getoond wordt; wie 'm al
+--     heeft weggeklikt onthoudt de client zelf (localStorage), niet de
+--     database.
+create table if not exists announcements (
+  id uuid primary key default gen_random_uuid(),
+  message text not null,
+  active boolean not null default true,
+  created_by uuid references profiles(id) not null,
+  created_at timestamptz default now()
+);
+
+alter table announcements enable row level security;
+
+select _drop_all_policies('announcements', 'SELECT');
+create policy "Iedereen mag meldingen lezen"
+  on announcements for select
+  using (true);
+
+select _drop_all_policies('announcements', 'INSERT');
+create policy "Alleen admin mag meldingen aanmaken"
+  on announcements for insert
+  with check (is_admin() and auth.uid() = created_by);
+
+select _drop_all_policies('announcements', 'UPDATE');
+create policy "Alleen admin mag meldingen wijzigen"
+  on announcements for update
+  using (is_admin());
+
+select _drop_all_policies('announcements', 'DELETE');
+create policy "Alleen admin mag meldingen verwijderen"
+  on announcements for delete
+  using (is_admin());

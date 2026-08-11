@@ -493,6 +493,30 @@ body {
   min-width: 0;
 }
 
+/* Door de admin geplaatste melding, bovenaan elke pagina — blijft staan
+   tot je 'm wegklikt (zie dismissAnnouncement in app/(app)/layout.js). */
+.announcement-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 13px;
+  border-bottom: 1px solid var(--panel-line);
+}
+
+.announcement-banner-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
+}
+
 /* Mobiele kopbalk: puur branding + account-avatar op de meeste pagina's
    (de eigenlijke navigatie zit daar onderin, zie .bottom-nav) — behalve op
    de spelpagina, die geen ruimte heeft voor een onderbalk naast haar eigen

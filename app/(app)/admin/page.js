@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight, ArrowLeftRight } from "lucide-react";
+import {
+  Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight, ChevronDown, ArrowLeftRight,
+  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy,
+} from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
 import { getDevSession } from "@/lib/devAccountSwitch";
@@ -20,43 +23,98 @@ const RULES = [
   { rule: "Rating", detail: "Elo-systeem (start 1200) na elke afgeronde partij tussen twee échte spelers; K-factor 40/20/10 op basis van ervaring/rating.", mechanic: "apply_game_rating() (SQL)" },
 ];
 
+// Naam van de tegenstander in een partij, ongeacht of het een echte
+// speler, de computer of een lokale tweede speler is — gedeeld door de
+// diverse partijlijsten hieronder.
+function opponentNameFor(g, role) {
+  if (g.vs_computer) return "Computer";
+  if (g.local_multiplayer) return g.state?.localNames?.[role === "A" ? "B" : "A"] || `Speler ${role === "A" ? "B" : "A"}`;
+  return role === "A" ? g.b?.username : g.a?.username;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
+  const [adminId, setAdminId] = useState(null);
   const [users, setUsers] = useState([]);
   const [onlineIds, setOnlineIds] = useState(new Set());
   const [feedback, setFeedback] = useState([]);
   const [activeGames, setActiveGames] = useState([]);
+  const [waitingGames, setWaitingGames] = useState([]);
+  const [finishedGames, setFinishedGames] = useState([]);
+  const [gameCounts, setGameCounts] = useState({ total: 0, today: 0 });
+  const [announcements, setAnnouncements] = useState([]);
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [switchingAccount, setSwitchingAccount] = useState(false);
+
+  const [userSearch, setUserSearch] = useState("");
+  const [sortMode, setSortMode] = useState("recent"); // recent | rating
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [expandedUserLoading, setExpandedUserLoading] = useState(false);
+  const [expandedUserGames, setExpandedUserGames] = useState([]);
+  const [expandedUserFriends, setExpandedUserFriends] = useState([]);
+
+  const [editingRatingId, setEditingRatingId] = useState(null);
+  const [ratingInput, setRatingInput] = useState("");
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const [ratingError, setRatingError] = useState(null);
+
+  const [announcementText, setAnnouncementText] = useState("");
+  const [announcementPosting, setAnnouncementPosting] = useState(false);
+  const [announcementError, setAnnouncementError] = useState(null);
 
   useEffect(() => {
     let channel;
 
     async function refreshAll() {
-      const { data: userList, error: usersError } = await supabase
-        .from("profiles")
-        .select("id, username, rating, created_at")
-        .order("created_at", { ascending: false });
-      if (usersError) setError("Gebruikers laden mislukt: " + usersError.message);
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const [
+        { data: userList, error: usersError },
+        { data: feedbackList, error: feedbackError },
+        { data: active, error: activeError },
+        { data: waiting, error: waitingError },
+        { data: finished, error: finishedError },
+        { count: totalCount },
+        { count: todayCount },
+        { data: announcementList, error: announcementListError },
+      ] = await Promise.all([
+        supabase.from("profiles").select("id, username, rating, created_at").order("created_at", { ascending: false }),
+        supabase.from("feedback").select("id, user_id, message, created_at, profiles:user_id(username)").order("created_at", { ascending: false }),
+        supabase
+          .from("games")
+          .select("id, status, created_at, a:player_a(username, rating), b:player_b(username, rating)")
+          .eq("status", "active")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("games")
+          .select("id, status, created_at, invited_id, a:player_a(username, rating), invited:invited_id(username)")
+          .eq("status", "waiting")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("games")
+          .select("id, status, created_at, updated_at, vs_computer, local_multiplayer, state, a:player_a(username, rating), b:player_b(username, rating)")
+          .eq("status", "finished")
+          .order("updated_at", { ascending: false })
+          .limit(20),
+        supabase.from("games").select("id", { count: "exact", head: true }),
+        supabase.from("games").select("id", { count: "exact", head: true }).gte("created_at", startOfToday.toISOString()),
+        supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+      ]);
+
+      const firstError = usersError || feedbackError || activeError || waitingError || finishedError || announcementListError;
+      if (firstError) setError("Laden mislukt: " + firstError.message);
+
       setUsers(userList || []);
-
-      const { data: feedbackList, error: feedbackError } = await supabase
-        .from("feedback")
-        .select("id, message, created_at, profiles:user_id(username)")
-        .order("created_at", { ascending: false });
-      if (feedbackError) setError("Feedback laden mislukt: " + feedbackError.message);
       setFeedback(feedbackList || []);
-
-      const { data: games, error: gamesError } = await supabase
-        .from("games")
-        .select("id, status, created_at, a:player_a(username, rating), b:player_b(username, rating)")
-        .eq("status", "active")
-        .order("created_at", { ascending: false });
-      if (gamesError) setError("Partijen laden mislukt: " + gamesError.message);
-      setActiveGames(games || []);
+      setActiveGames(active || []);
+      setWaitingGames(waiting || []);
+      setFinishedGames(finished || []);
+      setGameCounts({ total: totalCount || 0, today: todayCount || 0 });
+      setAnnouncements(announcementList || []);
     }
 
     async function init() {
@@ -69,6 +127,7 @@ export default function AdminPage() {
         return;
       }
       setAllowed(true);
+      setAdminId(user.id);
 
       await refreshAll();
       setLoading(false);
@@ -80,6 +139,7 @@ export default function AdminPage() {
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "feedback" }, refreshAll)
         .on("postgres_changes", { event: "*", schema: "public", table: "games" }, refreshAll)
+        .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, refreshAll)
         .subscribe(async (status) => {
           if (status === "SUBSCRIBED") {
             await channel.track({ username: profile.username, online_at: new Date().toISOString() });
@@ -106,16 +166,114 @@ export default function AdminPage() {
     window.location.href = "/lobby";
   }
 
+  // Werkt voor een partij in elke status — de admin mag altijd verwijderen
+  // (zie de DELETE-policy op games), dus deze knop verschijnt straks bij
+  // wachtende, actieve én afgeronde partijen.
   async function deleteGame(gameId) {
     if (!window.confirm("Deze partij verwijderen?")) return;
     setError(null);
     setDeletingId(gameId);
     const { error } = await supabase.from("games").delete().eq("id", gameId);
     setDeletingId(null);
-    if (error) setError("Verwijderen mislukt: " + error.message);
+    if (error) { setError("Verwijderen mislukt: " + error.message); return; }
+    setActiveGames((list) => list.filter((g) => g.id !== gameId));
+    setWaitingGames((list) => list.filter((g) => g.id !== gameId));
+    setFinishedGames((list) => list.filter((g) => g.id !== gameId));
+  }
+
+  async function deleteFeedback(id) {
+    if (!window.confirm("Deze feedback verwijderen?")) return;
+    setError(null);
+    const { error } = await supabase.from("feedback").delete().eq("id", id);
+    if (error) { setError("Verwijderen mislukt: " + error.message); return; }
+    setFeedback((list) => list.filter((f) => f.id !== id));
+  }
+
+  // Klap een gebruikersrij open/dicht; bij het openen worden hun recente
+  // partijen en vriendenlijst pas dan opgehaald (niet vooraf voor iedereen).
+  async function toggleUserExpand(userId) {
+    if (expandedUserId === userId) { setExpandedUserId(null); return; }
+    setExpandedUserId(userId);
+    setExpandedUserLoading(true);
+    const [{ data: games }, { data: friendRows }] = await Promise.all([
+      supabase
+        .from("games")
+        .select("id, status, created_at, vs_computer, local_multiplayer, state, a:player_a(username, rating), b:player_b(username, rating)")
+        .or(`player_a.eq.${userId},player_b.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("friendships")
+        .select("requester_id, addressee_id, requester:requester_id(username), addressee:addressee_id(username)")
+        .eq("status", "accepted")
+        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+    ]);
+    const myRole = (g) => (g.player_a === userId ? "A" : "B");
+    setExpandedUserGames((games || []).map((g) => ({ ...g, __role: myRole(g) })));
+    setExpandedUserFriends(
+      (friendRows || []).map((r) => (r.requester_id === userId ? r.addressee : r.requester)).filter(Boolean)
+    );
+    setExpandedUserLoading(false);
+  }
+
+  function startEditRating(u) {
+    setEditingRatingId(u.id);
+    setRatingInput(String(u.rating));
+    setRatingError(null);
+  }
+
+  function cancelEditRating() {
+    setEditingRatingId(null);
+    setRatingInput("");
+    setRatingError(null);
+  }
+
+  async function saveRating(userId) {
+    const value = parseInt(ratingInput, 10);
+    if (!Number.isFinite(value)) { setRatingError("Ongeldig getal."); return; }
+    setRatingSaving(true);
+    setRatingError(null);
+    const { error } = await supabase.from("profiles").update({ rating: value }).eq("id", userId);
+    setRatingSaving(false);
+    if (error) { setRatingError("Opslaan mislukt: " + error.message); return; }
+    setUsers((list) => list.map((u) => (u.id === userId ? { ...u, rating: value } : u)));
+    setEditingRatingId(null);
+  }
+
+  async function postAnnouncement(e) {
+    e.preventDefault();
+    const message = announcementText.trim();
+    if (!message || !adminId) return;
+    setAnnouncementPosting(true);
+    setAnnouncementError(null);
+    const { data, error } = await supabase.from("announcements").insert({ message, created_by: adminId }).select().single();
+    setAnnouncementPosting(false);
+    if (error) { setAnnouncementError("Plaatsen mislukt: " + error.message); return; }
+    setAnnouncements((list) => [data, ...list]);
+    setAnnouncementText("");
+  }
+
+  async function toggleAnnouncementActive(a) {
+    setAnnouncementError(null);
+    const { error } = await supabase.from("announcements").update({ active: !a.active }).eq("id", a.id);
+    if (error) { setAnnouncementError("Wijzigen mislukt: " + error.message); return; }
+    setAnnouncements((list) => list.map((x) => (x.id === a.id ? { ...x, active: !a.active } : x)));
+  }
+
+  async function deleteAnnouncement(id) {
+    if (!window.confirm("Deze melding verwijderen?")) return;
+    setAnnouncementError(null);
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
+    if (error) { setAnnouncementError("Verwijderen mislukt: " + error.message); return; }
+    setAnnouncements((list) => list.filter((a) => a.id !== id));
   }
 
   if (loading || !allowed) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
+
+  const avgRating = users.length ? Math.round(users.reduce((sum, u) => sum + u.rating, 0) / users.length) : null;
+  const filteredUsers = users
+    .filter((u) => u.username.toLowerCase().includes(userSearch.trim().toLowerCase()))
+    .sort((a, b) => (sortMode === "rating" ? b.rating - a.rating : new Date(b.created_at) - new Date(a.created_at)));
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-3xl mx-auto flex flex-col gap-6">
@@ -139,20 +297,206 @@ export default function AdminPage() {
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Gebruikers — {users.length} totaal, {onlineIds.size} online
+          Overzicht
         </h2>
+        <div className="carousel">
+          <div className="stat-card">
+            <span className="stat-card-value">{gameCounts.total}</span>
+            <span className="stat-card-label">Partijen totaal</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value">{gameCounts.today}</span>
+            <span className="stat-card-label">Vandaag gestart</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value">{avgRating ?? "—"}</span>
+            <span className="stat-card-label">Gem. rating</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-value" style={{ color: "#9db98a" }}>{onlineIds.size}</span>
+            <span className="stat-card-label">Nu online</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+          Gebruikers — {filteredUsers.length} van {users.length}, {onlineIds.size} online
+        </h2>
+        <div className="flex items-center gap-2 mb-3">
+          <div style={{ position: "relative", flex: 1 }}>
+            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+            <input
+              type="text"
+              className="input"
+              style={{ paddingLeft: 32, width: "100%" }}
+              placeholder="Zoek gebruikersnaam..."
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+            />
+          </div>
+          <button className="btn" onClick={() => setSortMode((m) => (m === "rating" ? "recent" : "rating"))}>
+            {sortMode === "rating" ? "Op rating" : "Op nieuwste"}
+          </button>
+        </div>
         <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
-          {users.map((u) => (
-            <li key={u.id} className="flex items-center justify-between text-sm">
-              <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
-                <Avatar username={u.username} /> {u.username} <Rating value={u.rating} />
-              </span>
-              <Badge tone={onlineIds.has(u.id) ? "online" : "offline"}>
-                {onlineIds.has(u.id) ? "online" : "offline"}
-              </Badge>
+          {filteredUsers.map((u) => (
+            <li key={u.id} style={{ borderBottom: "1px solid var(--panel-line)", paddingBottom: 8 }}>
+              <div className="flex items-center justify-between text-sm">
+                <button
+                  className="mono flex items-center gap-2"
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--muted)" }}
+                  onClick={() => toggleUserExpand(u.id)}
+                >
+                  <ChevronDown
+                    size={14}
+                    style={{ transform: expandedUserId === u.id ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 150ms" }}
+                  />
+                  <Avatar username={u.username} /> {u.username}
+                  {editingRatingId !== u.id && <Rating value={u.rating} />}
+                </button>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {editingRatingId === u.id ? (
+                    <>
+                      <input
+                        type="number"
+                        className="input"
+                        style={{ width: 72, padding: "4px 8px" }}
+                        value={ratingInput}
+                        onChange={(e) => setRatingInput(e.target.value)}
+                        autoFocus
+                      />
+                      <button className="btn btn-icon" title="Opslaan" onClick={() => saveRating(u.id)} disabled={ratingSaving}>
+                        <Check size={14} />
+                      </button>
+                      <button className="btn btn-icon" title="Annuleren" onClick={cancelEditRating}>
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <button className="btn btn-icon" title="Rating aanpassen" onClick={() => startEditRating(u)}>
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                  <Badge tone={onlineIds.has(u.id) ? "online" : "offline"}>
+                    {onlineIds.has(u.id) ? "online" : "offline"}
+                  </Badge>
+                </div>
+              </div>
+              {editingRatingId === u.id && ratingError && (
+                <p className="text-xs mt-1" style={{ color: "#e07a5f" }}>{ratingError}</p>
+              )}
+
+              {expandedUserId === u.id && (
+                <div className="flex flex-col gap-3 mt-3" style={{ paddingLeft: 22 }}>
+                  {expandedUserLoading ? (
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>Laden...</p>
+                  ) : (
+                    <>
+                      <div>
+                        <h3 className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>
+                          Recente partijen
+                        </h3>
+                        {expandedUserGames.length === 0 ? (
+                          <p className="text-xs" style={{ color: "var(--muted)" }}>Nog geen partijen.</p>
+                        ) : (
+                          <ul className="flex flex-col gap-1">
+                            {expandedUserGames.map((g) => (
+                              <li key={g.id} className="text-xs flex items-center justify-between" style={{ color: "var(--muted)" }}>
+                                <span>
+                                  vs {opponentNameFor(g, g.__role)}
+                                  {g.status === "finished" && (
+                                    <Badge tone={g.state?.winner === g.__role || g.local_multiplayer ? "active" : "closed"}>
+                                      {g.local_multiplayer ? "afgerond" : (g.state?.winner === g.__role ? "gewonnen" : "verloren")}
+                                    </Badge>
+                                  )}
+                                  {g.status !== "finished" && <Badge tone="waiting">{g.status}</Badge>}
+                                </span>
+                                <a className="btn btn-icon" href={`/game/${g.id}`} title="Bekijk"><Eye size={12} /></a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>
+                          Vrienden — {expandedUserFriends.length}
+                        </h3>
+                        {expandedUserFriends.length === 0 ? (
+                          <p className="text-xs" style={{ color: "var(--muted)" }}>Geen vrienden.</p>
+                        ) : (
+                          <p className="text-xs" style={{ color: "var(--muted)" }}>
+                            {expandedUserFriends.map((f) => f.username).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>
+                          Feedback van deze gebruiker
+                        </h3>
+                        {feedback.filter((f) => f.user_id === u.id).length === 0 ? (
+                          <p className="text-xs" style={{ color: "var(--muted)" }}>Geen feedback ingestuurd.</p>
+                        ) : (
+                          <ul className="flex flex-col gap-1">
+                            {feedback.filter((f) => f.user_id === u.id).map((f) => (
+                              <li key={f.id} className="text-xs" style={{ color: "var(--muted)" }}>&ldquo;{f.message}&rdquo;</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
+          <Megaphone size={15} /> Meldingen
+        </h2>
+        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+          Verschijnt als een balkje bovenaan bij alle gebruikers, tot ze &apos;m wegklikken.
+        </p>
+        <form onSubmit={postAnnouncement} className="flex items-center gap-2 mb-3">
+          <input
+            type="text"
+            className="input"
+            style={{ flex: 1 }}
+            placeholder="Nieuwe melding..."
+            value={announcementText}
+            onChange={(e) => setAnnouncementText(e.target.value)}
+            maxLength={280}
+          />
+          <button className="btn btn-solid" type="submit" disabled={announcementPosting || !announcementText.trim()}>
+            <Send size={14} /> {announcementPosting ? "Bezig..." : "Plaatsen"}
+          </button>
+        </form>
+        {announcementError && <p className="text-xs mb-2" style={{ color: "#e07a5f" }}>{announcementError}</p>}
+        {announcements.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Nog geen meldingen geplaatst.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {announcements.map((a) => (
+              <li key={a.id} className="flex items-center justify-between text-sm gap-2">
+                <span style={{ opacity: a.active ? 1 : 0.5 }}>
+                  {a.message}{" "}
+                  <Badge tone={a.active ? "active" : "neutral"}>{a.active ? "actief" : "uit"}</Badge>
+                </span>
+                <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                  <button className="btn btn-icon" title={a.active ? "Deactiveren" : "Activeren"} onClick={() => toggleAnnouncementActive(a)}>
+                    {a.active ? <X size={14} /> : <Check size={14} />}
+                  </button>
+                  <button className="btn btn-icon btn-danger" title="Verwijderen" onClick={() => deleteAnnouncement(a.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="panel">
@@ -164,12 +508,17 @@ export default function AdminPage() {
         )}
         <ul className="flex flex-col gap-3 max-h-96 overflow-y-auto">
           {feedback.map((f) => (
-            <li key={f.id} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
-              <div className="mono flex items-center gap-2" style={{ color: "var(--muted)", fontSize: "12px" }}>
-                <Avatar username={f.profiles?.username} size={18} />
-                {f.profiles?.username || "onbekend"} · {new Date(f.created_at).toLocaleString("nl-NL")}
+            <li key={f.id} className="text-sm border-t pt-2 flex items-start justify-between gap-2" style={{ borderColor: "var(--panel-line)" }}>
+              <div>
+                <div className="mono flex items-center gap-2" style={{ color: "var(--muted)", fontSize: "12px" }}>
+                  <Avatar username={f.profiles?.username} size={18} />
+                  {f.profiles?.username || "onbekend"} · {new Date(f.created_at).toLocaleString("nl-NL")}
+                </div>
+                <div>{f.message}</div>
               </div>
-              <div>{f.message}</div>
+              <button className="btn btn-icon" title="Verwijderen" onClick={() => deleteFeedback(f.id)}>
+                <Trash2 size={14} />
+              </button>
             </li>
           ))}
         </ul>
@@ -198,6 +547,62 @@ export default function AdminPage() {
               </div>
             </li>
           ))}
+        </ul>
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
+          <Clock size={15} /> Wachtende partijen — {waitingGames.length}
+        </h2>
+        {waitingGames.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Geen wachtende partijen.</p>
+        )}
+        <ul className="flex flex-col gap-2">
+          {waitingGames.map((g) => (
+            <li key={g.id} className="flex items-center justify-between text-sm">
+              <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+                <Avatar username={g.a?.username} size={22} /> {g.a?.username || "onbekend"} <Rating value={g.a?.rating} />
+                <Badge tone="waiting">
+                  {g.invited ? `uitnodiging voor ${g.invited.username}` : "open voor iedereen"}
+                </Badge>
+              </span>
+              <button className="btn btn-danger" onClick={() => deleteGame(g.id)} disabled={deletingId === g.id}>
+                <Trash2 size={14} /> {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
+          <Trophy size={15} /> Recent afgeronde partijen — {finishedGames.length}
+        </h2>
+        {finishedGames.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Nog geen afgeronde partijen.</p>
+        )}
+        <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+          {finishedGames.map((g) => {
+            const winnerName = g.local_multiplayer
+              ? (g.state?.localNames?.[g.state?.winner] || `Speler ${g.state?.winner}`)
+              : (g.state?.winner === "A" ? g.a?.username : opponentNameFor(g, "A"));
+            return (
+              <li key={g.id} className="flex items-center justify-between text-sm">
+                <span className="mono flex items-center gap-1 flex-wrap" style={{ color: "var(--muted)" }}>
+                  <Avatar username={g.a?.username} size={22} /> {g.a?.username || "onbekend"}
+                  <span style={{ margin: "0 4px" }}>vs</span>
+                  <Avatar username={opponentNameFor(g, "A")} size={22} /> {opponentNameFor(g, "A") || "onbekend"}
+                  <Badge tone="active"><Trophy size={12} /> {winnerName || "onbekend"} won</Badge>
+                </span>
+                <div className="flex items-center gap-2">
+                  <a className="btn btn-icon" href={`/game/${g.id}`} title="Bekijk"><Eye size={14} /></a>
+                  <button className="btn btn-icon btn-danger" title="Verwijderen" onClick={() => deleteGame(g.id)} disabled={deletingId === g.id}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
