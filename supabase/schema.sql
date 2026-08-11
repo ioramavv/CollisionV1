@@ -414,3 +414,37 @@ drop policy if exists "Gebruiker mag eigen avatar verwijderen" on storage.object
 create policy "Gebruiker mag eigen avatar verwijderen"
   on storage.objects for delete
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- 9) Genegeerde afgeronde partijen. Zodra een partij eindigt, verdwijnt hij
+--    uit "Jouw beurt"/"Tegenstander aan zet" (die tonen alleen actieve
+--    partijen) — de lobbypagina toont 'm daarna nog even apart onder "Net
+--    afgelopen", met de keuze om 'm te archiveren (zie archived_games) of
+--    te negeren. Deze tabel onthoudt die laatste keuze, zodat een genegeerde
+--    partij niet steeds terugkomt.
+create table if not exists dismissed_games (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) not null,
+  game_id uuid references games(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  unique (user_id, game_id)
+);
+
+alter table dismissed_games enable row level security;
+
+select _drop_all_policies('dismissed_games', 'SELECT');
+create policy "Gebruiker ziet alleen eigen genegeerde partijen"
+  on dismissed_games for select
+  using (auth.uid() = user_id);
+
+select _drop_all_policies('dismissed_games', 'INSERT');
+create policy "Gebruiker mag eigen afgeronde partij negeren"
+  on dismissed_games for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from games g
+      where g.id = game_id
+        and g.status = 'finished'
+        and (g.player_a = auth.uid() or g.player_b = auth.uid())
+    )
+  );

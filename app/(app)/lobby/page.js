@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle, ArrowLeftRight } from "lucide-react";
+import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle, ArrowLeftRight, Archive, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
@@ -15,6 +15,9 @@ export default function LobbyPage() {
   const [openGames, setOpenGames] = useState([]);
   const [invites, setInvites] = useState([]);
   const [myGames, setMyGames] = useState([]);
+  const [finishedGames, setFinishedGames] = useState([]);
+  const [finishedActionId, setFinishedActionId] = useState(null);
+  const [finishedActionError, setFinishedActionError] = useState(null);
   const [archivedGames, setArchivedGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newGameStep, setNewGameStep] = useState(null); // null | "invite" | "computer" | "local"
@@ -127,7 +130,52 @@ export default function LobbyPage() {
       .order("created_at", { ascending: false });
     setMyGames(mine || []);
 
-    await refreshArchive(userId);
+    await Promise.all([refreshFinishedGames(userId), refreshArchive(userId)]);
+  }
+
+  // Partijen die net zijn afgelopen (bv. de tegenstander deed de winnende
+  // zet terwijl jij niet op de spelpagina was) — die verdwijnen anders
+  // spoorloos uit "Jouw beurt"/"Tegenstander aan zet". Blijven hier zichtbaar
+  // tot je 'm archiveert of negeert (zie archiveFinished/dismissFinished).
+  async function refreshFinishedGames(userId) {
+    const [{ data: finished }, { data: archivedRows }, { data: dismissedRows }] = await Promise.all([
+      supabase
+        .from("games")
+        .select("id, status, player_a, player_b, vs_computer, local_multiplayer, state, updated_at, a:player_a(username, rating), b:player_b(username, rating)")
+        .or(`player_a.eq.${userId},player_b.eq.${userId}`)
+        .eq("status", "finished")
+        .order("updated_at", { ascending: false }),
+      supabase.from("archived_games").select("game_id").eq("user_id", userId),
+      supabase.from("dismissed_games").select("game_id").eq("user_id", userId),
+    ]);
+    const archivedIds = new Set((archivedRows || []).map((r) => r.game_id));
+    const dismissedIds = new Set((dismissedRows || []).map((r) => r.game_id));
+    setFinishedGames((finished || []).filter((g) => !archivedIds.has(g.id) && !dismissedIds.has(g.id)));
+  }
+
+  async function archiveFinished(gameId) {
+    setFinishedActionError(null);
+    setFinishedActionId(gameId);
+    const { error } = await supabase.from("archived_games").insert({ user_id: user.id, game_id: gameId });
+    setFinishedActionId(null);
+    if (error && error.code !== "23505") {
+      setFinishedActionError("Archiveren mislukt: " + error.message);
+      return;
+    }
+    setFinishedGames((games) => games.filter((g) => g.id !== gameId));
+    refreshArchive(user.id);
+  }
+
+  async function dismissFinished(gameId) {
+    setFinishedActionError(null);
+    setFinishedActionId(gameId);
+    const { error } = await supabase.from("dismissed_games").insert({ user_id: user.id, game_id: gameId });
+    setFinishedActionId(null);
+    if (error && error.code !== "23505") {
+      setFinishedActionError("Negeren mislukt: " + error.message);
+      return;
+    }
+    setFinishedGames((games) => games.filter((g) => g.id !== gameId));
   }
 
   async function refreshArchive(userId) {
@@ -494,6 +542,62 @@ export default function LobbyPage() {
           </h2>
           <ul className="flex flex-col gap-2">
             {theirTurnGames.map((g) => renderMyGameRow(g))}
+          </ul>
+        </section>
+      )}
+
+      {/* Partijen die net zijn afgelopen — bv. de tegenstander deed de
+          winnende zet terwijl jij niet op de spelpagina was. Blijven hier
+          zichtbaar (met de winnende zet nog te bekijken via de partij zelf)
+          tot je ze archiveert of negeert, zodat ze niet spoorloos uit
+          "Jouw beurt"/"Tegenstander aan zet" verdwijnen. */}
+      {finishedGames.length > 0 && (
+        <section className="panel">
+          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
+            Net afgelopen
+          </h2>
+          {finishedActionError && <p className="text-xs mb-2" style={{ color: "#e07a5f" }}>{finishedActionError}</p>}
+          <ul className="flex flex-col gap-2">
+            {finishedGames.map((g) => {
+              const opponentName = g.vs_computer
+                ? "Computer"
+                : g.local_multiplayer
+                  ? (g.state?.localNames?.B || "Speler 2")
+                  : (g.player_a === user.id ? g.b?.username : g.a?.username);
+              const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
+              const myRole = g.player_a === user.id ? "A" : "B";
+              const won = g.state?.winner === myRole;
+              const winnerName = g.local_multiplayer
+                ? (g.state?.localNames?.[g.state?.winner] || `Speler ${g.state?.winner}`)
+                : null;
+              const busy = finishedActionId === g.id;
+              return (
+                <li
+                  key={g.id}
+                  className="clickable-row flex items-center justify-between text-sm"
+                  onClick={() => router.push(`/game/${g.id}`)}
+                >
+                  <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+                    <Avatar username={opponentName} />
+                    Partij met {opponentName || "onbekend"} <Rating value={opponentRating} />
+                    <Badge tone={g.local_multiplayer || won ? "active" : "closed"}>
+                      {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? `${winnerName} won` : (won ? "gewonnen" : "verloren")}
+                    </Badge>
+                  </span>
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button className="btn btn-icon" title="Bekijk partij" onClick={() => router.push(`/game/${g.id}`)}>
+                      <Eye size={14} />
+                    </button>
+                    <button className="btn btn-icon" title="Archiveer" onClick={() => archiveFinished(g.id)} disabled={busy}>
+                      <Archive size={14} />
+                    </button>
+                    <button className="btn btn-icon" title="Negeren" onClick={() => dismissFinished(g.id)} disabled={busy}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
