@@ -17,7 +17,7 @@ import Board, { diffMove } from "@/lib/Board";
 // vaste diashow met nagemaakte voorbeelden.
 const STEPS = [
   {
-    text: "Dit is jouw pion, linksboven (uitgelicht). Klik erop om 'm te selecteren.",
+    text: "Dit is jouw pion, rechtsonder (uitgelicht). Klik erop om 'm te selecteren.",
     done: (ctx) => !!ctx.selected,
   },
   {
@@ -286,8 +286,8 @@ export default function TutorialPage() {
             interactive={isMyTurn}
             highlight={highlightPawn}
             onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
-            labelTopLeft="Jij"
-            labelBottomRight="Computer"
+            labelTopLeft="Computer"
+            labelBottomRight="Jij"
           />
 
           {selected && isMyTurn && (
