@@ -9,45 +9,49 @@ import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter } from "
 import { chooseComputerTurn } from "@/lib/collisionAI";
 import { DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
+import { useSiteContent } from "@/lib/siteContent";
 
 // Uitlegpagina: een echte, volledig lokale oefenpartij tegen de computer
 // (Makkelijk) — niets wordt opgeslagen in Supabase, dus er is niets om op
 // te ruimen en "opnieuw beginnen" is gewoon de state resetten. De tips
 // lopen mee met wat er daadwerkelijk op het bord gebeurt, in plaats van een
-// vaste diashow met nagemaakte voorbeelden.
+// vaste diashow met nagemaakte voorbeelden. De tekst zelf komt uit
+// lib/siteContent.js (key i.p.v. vaste string), zodat de admin 'm kan
+// aanpassen — done() blijft hier, dat is gedrag, geen tekst.
 const STEPS = [
   {
-    text: "Dit is jouw pion, rechtsonder (uitgelicht). Klik erop om 'm te selecteren.",
+    key: "tutorial.step.1",
     done: (ctx) => !!ctx.selected,
   },
   {
-    text: "Kies nu een richting. Je pion stuitert door tot-ie ergens tegenaan botst — de rand, het centrum, of een ander stuk.",
+    key: "tutorial.step.2",
     done: (ctx) => ctx.movedThisTurn,
   },
   {
-    text: "Je mag met hetzelfde stuk nog een keer stuiteren (ook een andere richting), of op STOP drukken om je beurt te beëindigen.",
+    key: "tutorial.step.3",
     done: (ctx) => ctx.turnEnded,
   },
   {
-    text: "Nu is de computer aan zet — te zien aan de kleurstip naast zijn naam hierboven.",
+    key: "tutorial.step.4",
     done: (ctx) => ctx.state.turn === "A",
   },
   {
-    text: "Je hebt ook 5 hulpstukken. Die kun je neerzetten om een pad te blokkeren of jezelf te beschermen — klik op \"Plaats hulpstuk\".",
+    key: "tutorial.step.5",
     done: (ctx) => ctx.state.toolsRemaining.A < 5 || ctx.placing,
   },
   {
-    text: "Let op: een zet mag nooit een pion (van wie dan ook) volledig van het centrum afsluiten — het spel weigert zo'n zet automatisch.",
+    key: "tutorial.step.6",
     done: () => false,
   },
   {
-    text: "Dat is alles! Bereik als eerste met je pion het centrum om te winnen. Speel gewoon verder, of begin opnieuw.",
+    key: "tutorial.step.7",
     done: () => false,
   },
 ];
 
 export default function TutorialPage() {
   const router = useRouter();
+  const t = useSiteContent();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [state, setState] = useState(() => freshState());
   const [selected, setSelected] = useState(null);
@@ -270,7 +274,7 @@ export default function TutorialPage() {
               <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, flexShrink: 0, color: "#111" }}>
                 Tip
               </span>
-              <p style={{ fontSize: 14, flex: 1, margin: 0, color: "#111" }}>{currentStep.text}</p>
+              <p style={{ fontSize: 14, flex: 1, margin: 0, color: "#111" }}>{t(currentStep.key)}</p>
               {stepIndex < STEPS.length - 1 && (
                 <button className="btn btn-icon" onClick={() => setStepIndex((i) => i + 1)} title="Volgende tip" style={{ flexShrink: 0 }}>
                   <ArrowRight size={15} />

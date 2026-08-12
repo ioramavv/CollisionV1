@@ -8,9 +8,11 @@ import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
 import { BUGFIXES } from "@/lib/bugfixes";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
 import { getDevSession } from "@/lib/devAccountSwitch";
+import { useSiteContent } from "@/lib/siteContent";
 
 export default function LobbyPage() {
   const router = useRouter();
+  const t = useSiteContent();
   const [user, setUser] = useState(null);
   const [openGames, setOpenGames] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -527,7 +529,7 @@ export default function LobbyPage() {
       {myTurnGames.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Jouw beurt
+            {t("lobby.section.myTurn")}
           </h2>
           <ul className="flex flex-col gap-2">
             {myTurnGames.map((g) => renderMyGameRow(g))}
@@ -538,7 +540,7 @@ export default function LobbyPage() {
       {theirTurnGames.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Tegenstander aan zet
+            {t("lobby.section.theirTurn")}
           </h2>
           <ul className="flex flex-col gap-2">
             {theirTurnGames.map((g) => renderMyGameRow(g))}
@@ -554,7 +556,7 @@ export default function LobbyPage() {
       {finishedGames.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Net afgelopen
+            {t("lobby.section.finished")}
           </h2>
           {finishedActionError && <p className="text-xs mb-2" style={{ color: "#e07a5f" }}>{finishedActionError}</p>}
           <ul className="flex flex-col gap-2">
@@ -604,7 +606,7 @@ export default function LobbyPage() {
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Snel spelen
+          {t("lobby.section.quickPlay")}
         </h2>
         <div className="carousel">
           <button className="carousel-card" onClick={() => setNewGameStep("invite")}>
@@ -612,8 +614,8 @@ export default function LobbyPage() {
               <UserPlus size={18} />
             </span>
             <span>
-              <span className="carousel-card-title">Vriend uitnodigen</span>
-              <span className="carousel-card-sub">Speel 1-op-1</span>
+              <span className="carousel-card-title">{t("lobby.card.invite.title")}</span>
+              <span className="carousel-card-sub">{t("lobby.card.invite.sub")}</span>
             </span>
           </button>
           <button className="carousel-card" onClick={() => setNewGameStep("computer")}>
@@ -621,8 +623,8 @@ export default function LobbyPage() {
               <Cpu size={18} />
             </span>
             <span>
-              <span className="carousel-card-title">Tegen de computer</span>
-              <span className="carousel-card-sub">4 niveaus</span>
+              <span className="carousel-card-title">{t("lobby.card.computer.title")}</span>
+              <span className="carousel-card-sub">{t("lobby.card.computer.sub")}</span>
             </span>
           </button>
           <button className="carousel-card" onClick={() => setNewGameStep("local")}>
@@ -630,8 +632,8 @@ export default function LobbyPage() {
               <Smartphone size={18} />
             </span>
             <span>
-              <span className="carousel-card-title">Lokaal spelen</span>
-              <span className="carousel-card-sub">Samen op de bank</span>
+              <span className="carousel-card-title">{t("lobby.card.local.title")}</span>
+              <span className="carousel-card-sub">{t("lobby.card.local.sub")}</span>
             </span>
           </button>
           <button className="carousel-card" onClick={() => createGame()}>
@@ -639,8 +641,8 @@ export default function LobbyPage() {
               <Play size={18} />
             </span>
             <span>
-              <span className="carousel-card-title">Open partij</span>
-              <span className="carousel-card-sub">Iedereen mag joinen</span>
+              <span className="carousel-card-title">{t("lobby.card.open.title")}</span>
+              <span className="carousel-card-sub">{t("lobby.card.open.sub")}</span>
             </span>
           </button>
           <button className="carousel-card" onClick={() => router.push("/tutorial")}>
@@ -648,8 +650,8 @@ export default function LobbyPage() {
               <HelpCircle size={18} />
             </span>
             <span>
-              <span className="carousel-card-title">Uitleg</span>
-              <span className="carousel-card-sub">Leer de regels</span>
+              <span className="carousel-card-title">{t("lobby.card.tutorial.title")}</span>
+              <span className="carousel-card-sub">{t("lobby.card.tutorial.sub")}</span>
             </span>
           </button>
         </div>
@@ -657,7 +659,7 @@ export default function LobbyPage() {
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Statistieken
+          {t("lobby.section.stats")}
         </h2>
         <div className="carousel">
           <div className="stat-card">
@@ -682,7 +684,7 @@ export default function LobbyPage() {
       {archivedGames.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Gearchiveerde partijen
+            {t("lobby.section.archived")}
           </h2>
           <ul className="flex flex-col gap-2">
             {archivedGames.map((e) => {
@@ -718,7 +720,7 @@ export default function LobbyPage() {
       {openGames.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Open partijen
+            {t("lobby.section.open")}
           </h2>
           <ul className="flex flex-col gap-2">
             {openGames.map((g) => (

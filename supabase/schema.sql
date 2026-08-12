@@ -490,3 +490,44 @@ select _drop_all_policies('announcements', 'DELETE');
 create policy "Alleen admin mag meldingen verwijderen"
   on announcements for delete
   using (is_admin());
+
+-- 11) Site-inhoud (site_content). Key/waarde-paren waarmee de admin losse
+--     teksten in de UI (sectietitels, kaartjes, uitlegpagina-stappen) kan
+--     overschrijven zonder code te wijzigen — zie app/(app)/admin/content/
+--     page.js en lib/siteContent.js. Alleen keys die daadwerkelijk van de
+--     standaardtekst afwijken staan hier; ontbreekt een key, dan valt de
+--     UI terug op DEFAULT_CONTENT in lib/siteContent.js.
+create table if not exists site_content (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz default now()
+);
+
+alter table site_content enable row level security;
+
+drop trigger if exists site_content_set_updated_at on site_content;
+create trigger site_content_set_updated_at
+  before update on site_content
+  for each row execute procedure set_updated_at();
+
+select _drop_all_policies('site_content', 'SELECT');
+create policy "Iedereen mag site-teksten lezen"
+  on site_content for select
+  using (true);
+
+select _drop_all_policies('site_content', 'INSERT');
+create policy "Alleen admin mag site-teksten aanmaken"
+  on site_content for insert
+  with check (is_admin());
+
+select _drop_all_policies('site_content', 'UPDATE');
+create policy "Alleen admin mag site-teksten wijzigen"
+  on site_content for update
+  using (is_admin());
+
+select _drop_all_policies('site_content', 'DELETE');
+create policy "Alleen admin mag site-teksten verwijderen"
+  on site_content for delete
+  using (is_admin());
+
+select _ensure_realtime('site_content');
