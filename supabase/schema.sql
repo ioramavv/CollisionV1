@@ -574,3 +574,4 @@ create policy "Alleen admin mag bugfixes verwijderen"
   using (is_admin());
 
 select _ensure_realtime('site_content');
+select _ensure_realtime('bugfixes');
