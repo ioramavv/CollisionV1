@@ -182,29 +182,17 @@ export default function AppLayout({ children }) {
           <div className="sidebar-brand">
             <Logo size={20} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* Taalknop — naast de account-avatar, zodat 'm meteen te vinden
-                is zonder eerst een menu te hoeven openen (zie ook de
-                mobiele kopbalk hieronder). */}
-            <button
-              className="btn btn-icon"
-              onClick={() => setLangMenuOpen((v) => !v)}
-              aria-label={t("layout.language.choose")}
-              title={t("layout.language.choose")}
-            >
-              <Globe size={15} />
-            </button>
-            {/* Zelfde account-menu als op mobiel (Profiel/Feedback/Admin/
-                Uitloggen), ook hier rechtsboven bereikbaar via de avatar —
-                op elke pagina, ook Admin. */}
-            <button
-              onClick={() => setAccountMenuOpen(true)}
-              aria-label={t("layout.account.openMenu")}
-              style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0 }}
-            >
-              {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={24} />}
-            </button>
-          </div>
+          {/* Zelfde account-menu als op mobiel (Profiel/Feedback/Admin/
+              Uitloggen), hier rechtsboven bereikbaar via de avatar — op
+              elke pagina, ook Admin. De taalknop staat niet meer hier, maar
+              in de navigatielijst hieronder, naast Lobby/Vrienden/Uitleg. */}
+          <button
+            onClick={() => setAccountMenuOpen(true)}
+            aria-label={t("layout.account.openMenu")}
+            style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0 }}
+          >
+            {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={24} />}
+          </button>
         </div>
         <div className="sidebar-body">
           <ul className="sidebar-nav">
@@ -224,6 +212,19 @@ export default function AppLayout({ children }) {
                 </Link>
               </li>
             ))}
+            <li>
+              {/* Taalkeuze staat hier, naast Lobby/Vrienden/Uitleg, i.p.v.
+                  los bovenin naast de avatar — zo is 'm meteen te vinden
+                  tussen de rest van de navigatie. */}
+              <button
+                className="sidebar-link"
+                style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}
+                onClick={() => setLangMenuOpen(true)}
+              >
+                <Globe size={17} strokeWidth={2} />
+                {t("layout.nav.language")}
+              </button>
+            </li>
             <li>
               <Link href="/profile" className={`sidebar-link${pathname.startsWith("/profile") ? " active" : ""}`}>
                 <UserCircle size={17} strokeWidth={2} />
@@ -287,16 +288,21 @@ export default function AppLayout({ children }) {
                 </span>
               </Link>
             ))}
+            {/* Zelfde taalknop als hieronder/op desktop, hier tussen de
+                andere navigatie-tabs i.p.v. los bij de avatar — dit is de
+                enige navigatiebalk die je op de spelpagina hebt. */}
+            <button
+              type="button"
+              className="mobile-topbar-tab"
+              style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+              aria-label={t("layout.language.choose")}
+              onClick={() => setLangMenuOpen(true)}
+            >
+              <Globe size={19} strokeWidth={2} />
+            </button>
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <button
-            className="btn btn-icon"
-            onClick={() => setLangMenuOpen((v) => !v)}
-            aria-label={t("layout.language.choose")}
-          >
-            <Globe size={15} />
-          </button>
           <button
             className="mobile-topbar-avatar"
             onClick={() => setAccountMenuOpen(true)}
@@ -342,23 +348,40 @@ export default function AppLayout({ children }) {
                 {t(link.labelKey)}
               </Link>
             ))}
+            {/* Taalkeuze als vierde tab, naast Lobby/Vrienden/Uitleg —
+                zelfde plek/stijl als op desktop, i.p.v. los bovenin. */}
+            <button
+              type="button"
+              className="bottom-nav-tab"
+              onClick={() => setLangMenuOpen(true)}
+            >
+              <Globe size={19} strokeWidth={2} />
+              {t("layout.nav.language")}
+            </button>
           </div>
         </nav>
       )}
 
+      {/* Centraal gepositioneerd (zoals de feedback-modal), i.p.v. rechtsboven
+          verankerd — de knop die 'm opent zit nu tussen de navigatie-tabs
+          (soms onderin, soms in de zijbalk), niet meer vast rechtsboven. */}
       {langMenuOpen && (
         <div
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-            display: "flex", alignItems: "flex-start", justifyContent: "flex-end", zIndex: 55,
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: "1rem",
           }}
           onClick={() => setLangMenuOpen(false)}
         >
           <div
             className="panel"
-            style={{ width: "100%", maxWidth: 200, margin: "8px 8px 0 0", display: "flex", flexDirection: "column", gap: 2 }}
+            style={{ width: "100%", maxWidth: 280, display: "flex", flexDirection: "column", gap: 4 }}
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>{t("layout.language.choose")}</h2>
+              <button className="btn btn-icon" onClick={() => setLangMenuOpen(false)}><X size={16} /></button>
+            </div>
             {SUPPORTED_LOCALES.map((code) => (
               <button
                 key={code}
