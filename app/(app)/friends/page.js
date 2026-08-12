@@ -5,9 +5,11 @@ import QRCode from "qrcode";
 import { Search, UserPlus, Check, X, Ban, UserMinus, QrCode, Copy, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Rating, BoardLoader } from "@/lib/ui";
+import { useTranslation } from "@/lib/i18n";
 
 export default function FriendsPage() {
   const router = useRouter();
+  const t = useTranslation();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ export default function FriendsPage() {
   async function shareInviteLink() {
     if (!inviteUrl) return;
     try {
-      await navigator.share({ title: "Collision", text: "Speel Collision met mij — word mijn vriend:", url: inviteUrl });
+      await navigator.share({ title: "Collision", text: t("friends.inviteLink.shareText"), url: inviteUrl });
     } catch {
       // Gebruiker annuleerde de deel-sheet — geen actie nodig.
     }
@@ -130,7 +132,7 @@ export default function FriendsPage() {
     }
 
     const { error } = await supabase.from("friendships").insert({ requester_id: user.id, addressee_id: targetId });
-    if (error) setError("Vriendverzoek versturen mislukt: " + error.message);
+    if (error) setError(t("friends.error.requestFailed", { message: error.message }));
     await refreshFriends(user.id);
   }
 
@@ -146,23 +148,23 @@ export default function FriendsPage() {
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-2xl mx-auto flex flex-col gap-6">
-      <h1 className="text-xl font-extrabold uppercase tracking-widest">Vrienden</h1>
+      <h1 className="text-xl font-extrabold uppercase tracking-widest">{t("layout.nav.friends")}</h1>
 
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <QrCode size={15} /> Uitnodigen via link
+          <QrCode size={15} /> {t("friends.inviteLink.title")}
         </h2>
         <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
-          Stuur deze link naar een vriend via WhatsApp, Signal, of laat &apos;m de QR-code scannen — jullie worden dan automatisch vrienden.
+          {t("friends.inviteLink.desc")}
         </p>
         {inviteUrl && (
           <div className="flex flex-col md:flex-row gap-3 items-center md:items-start">
             {qrDataUrl && (
               <img
                 src={qrDataUrl}
-                alt="QR-code voor je uitnodigingslink"
+                alt={t("friends.inviteLink.qrAlt")}
                 width={140}
                 height={140}
                 style={{ borderRadius: 8, border: "1px solid var(--panel-line)", flexShrink: 0 }}
@@ -174,11 +176,11 @@ export default function FriendsPage() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button className="btn" onClick={copyInviteLink}>
-                  {linkCopied ? <Check size={15} /> : <Copy size={15} />} {linkCopied ? "Gekopieerd!" : "Kopieer link"}
+                  {linkCopied ? <Check size={15} /> : <Copy size={15} />} {linkCopied ? t("friends.inviteLink.copied") : t("friends.inviteLink.copy")}
                 </button>
                 {canShare && (
                   <button className="btn btn-solid" onClick={shareInviteLink}>
-                    <Share2 size={15} /> Delen
+                    <Share2 size={15} /> {t("friends.inviteLink.share")}
                   </button>
                 )}
               </div>
@@ -189,14 +191,14 @@ export default function FriendsPage() {
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Vriend toevoegen
+          {t("friends.addFriend.title")}
         </h2>
         <form onSubmit={searchUsers} className="flex items-center gap-2">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Zoek op gebruikersnaam..."
+            placeholder={t("lobby.modal.invite.searchPlaceholder")}
             className="input flex-1"
           />
           <button className="btn btn-icon" type="submit" disabled={searching}><Search size={15} /></button>
@@ -209,7 +211,7 @@ export default function FriendsPage() {
                   <Avatar username={p.username} /> {p.username}
                 </span>
                 <button className="btn" onClick={() => sendRequest(p.id)}>
-                  <UserPlus size={15} /> Vriend worden
+                  <UserPlus size={15} /> {t("friends.addFriend.become")}
                 </button>
               </li>
             ))}
@@ -220,18 +222,18 @@ export default function FriendsPage() {
       {incoming.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Openstaande verzoeken
+            {t("friends.pending.title")}
           </h2>
           <ul className="flex flex-col gap-2">
             {incoming.map((r) => (
               <li key={r.id} className="flex items-center justify-between text-sm">
                 <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <Avatar username={otherUsername(r, user.id)} />
-                  {otherUsername(r, user.id) || "onbekend"} <Rating value={otherRating(r, user.id)} /> wil vrienden worden
+                  {otherUsername(r, user.id) || t("common.unknown")} <Rating value={otherRating(r, user.id)} /> {t("friends.pending.wantsFriendSuffix")}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button className="btn btn-success" onClick={() => acceptRequest(r.id)}><Check size={15} /> Accepteren</button>
-                  <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><X size={15} /> Afwijzen</button>
+                  <button className="btn btn-success" onClick={() => acceptRequest(r.id)}><Check size={15} /> {t("common.accept")}</button>
+                  <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><X size={15} /> {t("friends.pending.decline")}</button>
                 </div>
               </li>
             ))}
@@ -242,16 +244,16 @@ export default function FriendsPage() {
       {outgoing.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Verzonden verzoeken
+            {t("friends.sent.title")}
           </h2>
           <ul className="flex flex-col gap-2">
             {outgoing.map((r) => (
               <li key={r.id} className="flex items-center justify-between text-sm">
                 <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <Avatar username={otherUsername(r, user.id)} />
-                  Verzoek naar {otherUsername(r, user.id) || "onbekend"} <Rating value={otherRating(r, user.id)} />
+                  {t("friends.sent.requestTo", { name: otherUsername(r, user.id) || t("common.unknown") })} <Rating value={otherRating(r, user.id)} />
                 </span>
-                <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><Ban size={15} /> Annuleren</button>
+                <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><Ban size={15} /> {t("common.cancel")}</button>
               </li>
             ))}
           </ul>
@@ -260,20 +262,20 @@ export default function FriendsPage() {
 
       <section className="panel">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Vrienden
+          {t("layout.nav.friends")}
         </h2>
         {friends.length === 0 && (
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Nog geen vrienden — zoek hierboven iemand op.
+            {t("friends.list.empty")}
           </p>
         )}
         <ul className="flex flex-col gap-2">
           {friends.map((r) => (
             <li key={r.id} className="flex items-center justify-between text-sm">
               <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
-                <Avatar username={otherUsername(r, user.id)} /> {otherUsername(r, user.id) || "onbekend"} <Rating value={otherRating(r, user.id)} />
+                <Avatar username={otherUsername(r, user.id)} /> {otherUsername(r, user.id) || t("common.unknown")} <Rating value={otherRating(r, user.id)} />
               </span>
-              <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><UserMinus size={15} /> Verwijderen</button>
+              <button className="btn btn-danger" onClick={() => removeRequest(r.id)}><UserMinus size={15} /> {t("friends.list.remove")}</button>
             </li>
           ))}
         </ul>
