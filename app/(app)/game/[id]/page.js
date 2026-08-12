@@ -7,9 +7,10 @@ import {
   ChevronLeft, ChevronRight, Eye, MessageCircle, Send, TriangleAlert, Check, X, RotateCcw,
 } from "lucide-react";
 import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter, DIRS } from "@/lib/collisionEngine";
-import { chooseComputerTurn, DIFFICULTY_LABELS } from "@/lib/collisionAI";
+import { chooseComputerTurn } from "@/lib/collisionAI";
 import { Avatar, Rating, DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
+import { useTranslation } from "@/lib/i18n";
 
 function Confetti() {
   // Lazy initializer: draait maar één keer (bij mount), dus de
@@ -49,6 +50,12 @@ function Confetti() {
 export default function GamePage() {
   const { id } = useParams();
   const router = useRouter();
+  const t = useTranslation();
+  // Ref-kopie van t() voor gebruik binnen de init-useEffect hieronder — die
+  // moet alleen bij een andere game-id opnieuw draaien (subscriptions e.d.),
+  // niet bij elke taalwissel, dus t zelf hoort niet in die dependency-array.
+  const tRef = useRef(t);
+  useEffect(() => { tRef.current = t; }, [t]);
 
   const [user, setUser] = useState(null);
   const [game, setGame] = useState(null);
@@ -128,13 +135,13 @@ export default function GamePage() {
         .select("*, a:player_a(username, rating), b:player_b(username, rating)")
         .eq("id", id)
         .single();
-      if (error || !data) { setError("Partij niet gevonden."); setLoading(false); return; }
+      if (error || !data) { setError(tRef.current("game.error.notFound")); setLoading(false); return; }
       setGame(data);
       committedStateRef.current = data.state;
       if (data.local_multiplayer) {
         setPlayerNames({
-          A: data.state?.localNames?.A || "Speler 1",
-          B: data.state?.localNames?.B || "Speler 2",
+          A: data.state?.localNames?.A || tRef.current("lobby.modal.local.player1Placeholder"),
+          B: data.state?.localNames?.B || tRef.current("lobby.modal.local.player2Placeholder"),
         });
       } else {
         setPlayerNames({ A: data.a?.username || null, B: data.vs_computer ? "Computer" : (data.b?.username || null) });
@@ -207,7 +214,7 @@ export default function GamePage() {
   // spelen. Voor online partijen is dit gelijk aan myRole.
   const effectiveRole = (game?.local_multiplayer && myRole === "A") ? state?.turn : myRole;
   const isMyTurn = state && effectiveRole && state.turn === effectiveRole && !state.winner;
-  const nameFor = (role) => playerNames[role] || `Speler ${role}`;
+  const nameFor = (role) => playerNames[role] || t("game.playerFallback", { role });
   const canStopHere = state ? bothPawnsCanReachCenter(state.board, state.pawnPos) : true;
 
   const history = state?.history || [];
@@ -362,7 +369,7 @@ export default function GamePage() {
   function handlePlaceCellTap(r, c) {
     if (viewingHistory || !isMyTurn || !placing) return;
     const result = applyPlaceTool(state, effectiveRole, r, c);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) { setError(t(`engine.error.${result.error}`)); return; }
     setError(null);
     setPendingPlacement({ r, c });
   }
@@ -372,7 +379,7 @@ export default function GamePage() {
     const result = applyPlaceTool(state, effectiveRole, pendingPlacement.r, pendingPlacement.c);
     if (!result.ok) {
       // Zeldzaam: staat kan tussen preview en bevestiging gewijzigd zijn.
-      setError(result.error);
+      setError(t(`engine.error.${result.error}`));
       setPendingPlacement(null);
       return;
     }
@@ -391,7 +398,7 @@ export default function GamePage() {
   function handleMove(dir) {
     if (!isMyTurn || !selected) return;
     const result = applyMove(state, effectiveRole, [selected.r, selected.c], dir, false);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) { setError(t(`engine.error.${result.error}`)); return; }
     setError(null);
     if (result.winningMove) { pushState(result.state, "finished"); return; }
     setSelected({ r: result.dest[0], c: result.dest[1], type: selected.type });
@@ -408,7 +415,7 @@ export default function GamePage() {
     // worden (applyMove valideert dit al per stuiter, maar STOP eindigt de
     // beurt buiten applyMove om).
     if (!bothPawnsCanReachCenter(state.board, state.pawnPos)) {
-      setError("Je kunt hier niet stoppen — dit zou een pion volledig insluiten. Beweeg verder.");
+      setError(t("engine.error.cannotStopHere"));
       return;
     }
     setError(null);
@@ -461,7 +468,7 @@ export default function GamePage() {
 
   function resign() {
     if (!myRole || !state || state.winner) return;
-    if (!window.confirm("Weet je zeker dat je wilt opgeven?")) return;
+    if (!window.confirm(t("game.resign.confirm"))) return;
     const opp = effectiveRole === "A" ? "B" : "A";
     const nextState = {
       ...state,
@@ -492,7 +499,7 @@ export default function GamePage() {
     setChatError(null);
     const { error } = await supabase.from("game_messages").insert({ game_id: id, sender_id: user.id, body });
     setSendingChat(false);
-    if (error) { setChatError("Versturen mislukt: " + error.message); return; }
+    if (error) { setChatError(t("game.error.sendFailed", { message: error.message })); return; }
     setChatText("");
   }
 
@@ -502,7 +509,7 @@ export default function GamePage() {
     const { error } = await supabase.from("archived_games").insert({ user_id: user.id, game_id: id });
     setArchiving(false);
     if (error && error.code !== "23505") {
-      setArchiveError("Archiveren mislukt: " + error.message);
+      setArchiveError(t("game.error.archiveFailed", { message: error.message }));
       return;
     }
     setArchived(true);
@@ -555,16 +562,16 @@ export default function GamePage() {
             )}
             <h2 className="text-lg font-extrabold uppercase tracking-widest">
               {!myRole
-                ? "De match is beëindigd"
+                ? t("game.winner.matchEnded")
                 : game.local_multiplayer
-                  ? `${nameFor(state.winner)} heeft gewonnen!`
+                  ? t("game.winner.wonBy", { name: nameFor(state.winner) })
                   : myRole === state.winner
-                    ? "Je hebt gewonnen!"
-                    : "Je hebt verloren"}
+                    ? t("game.winner.youWon")
+                    : t("game.winner.youLost")}
             </h2>
             {!game.vs_computer && !game.local_multiplayer && myRole && playerRatings[myRole] != null && (
               <p className="text-sm mono" style={{ color: "var(--muted)" }}>
-                Nieuwe rating: {playerRatings[myRole]}
+                {t("game.newRating", { value: playerRatings[myRole] })}
                 {ratingDelta?.[myRole] != null && (
                   <span style={{ color: ratingDelta[myRole] >= 0 ? "#9db98a" : "#e07a5f" }}>
                     {" "}({ratingDelta[myRole] >= 0 ? "+" : ""}{ratingDelta[myRole]})
@@ -575,17 +582,17 @@ export default function GamePage() {
             {archiveError && <p className="text-xs" style={{ color: "#e07a5f" }}>{archiveError}</p>}
             {myRole && (
               <button className="btn" onClick={archiveMatch} disabled={archiving || archived}>
-                <Archive size={15} /> {archived ? "Gearchiveerd ✓" : archiving ? "Bezig..." : "Archiveer deze partij"}
+                <Archive size={15} /> {archived ? t("game.archived") : archiving ? t("common.busy") : t("game.archiveGame")}
               </button>
             )}
-            <button className="btn btn-solid" onClick={() => router.push("/lobby")}>Terug naar lobby</button>
+            <button className="btn btn-solid" onClick={() => router.push("/lobby")}>{t("game.backToLobby")}</button>
           </div>
         </div>
       )}
 
       {!myRole && (
         <p className="text-sm flex items-center gap-2" style={{ color: "var(--muted)" }}>
-          <Eye size={15} /> Je kijkt toe als toeschouwer — je bent geen speler in deze partij.
+          <Eye size={15} /> {t("game.spectator")}
         </p>
       )}
 
@@ -595,7 +602,7 @@ export default function GamePage() {
           style={{ color: "#e0b24c", background: "rgba(224, 178, 76, 0.12)", border: "1px solid rgba(224, 178, 76, 0.3)", borderRadius: 8, padding: "6px 12px" }}
         >
           <TriangleAlert size={14} strokeWidth={2} />
-          Bèta: de computerspeler is nog in ontwikkeling en speelt niet altijd goed of foutloos.
+          {t("lobby.modal.computer.betaWarning")}
         </p>
       )}
 
@@ -619,7 +626,7 @@ export default function GamePage() {
               labelBottomRight={nameFor("A")}
             />
             {myRole && !state.winner && (
-              <button className="btn btn-icon btn-danger board-resign-btn" onClick={resign} title="Opgeven">
+              <button className="btn btn-icon btn-danger board-resign-btn" onClick={resign} title={t("game.resign.tooltip")}>
                 <Flag size={15} />
               </button>
             )}
@@ -632,7 +639,7 @@ export default function GamePage() {
                 <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
                 <div />
                 <DirBtn icon={ArrowLeft} onClick={() => handleMove("left")} />
-                <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}><Square size={14} /> STOP</button>
+                <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? t("game.stopWouldEnclose") : undefined}><Square size={14} /> {t("game.stop")}</button>
                 <DirBtn icon={ArrowRight} onClick={() => handleMove("right")} />
                 <div />
                 <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />
@@ -642,7 +649,7 @@ export default function GamePage() {
                   mag je gewoon van gedachten veranderen — een ander stuk
                   kiezen, of alsnog een hulpstuk plaatsen. */}
               {movedThisTurn && (
-                <button className="btn" onClick={cancelTurn}><RotateCcw size={14} /> Annuleer beurt</button>
+                <button className="btn" onClick={cancelTurn}><RotateCcw size={14} /> {t("game.cancelTurn")}</button>
               )}
             </div>
           )}
@@ -656,40 +663,40 @@ export default function GamePage() {
             <div className="game-action-bar">
               {pendingPlacement ? (
                 <>
-                  <p className="text-xs" style={{ color: "var(--muted)" }}>Hulpstuk plaatsen op dit vakje?</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>{t("game.placeToolQuestion")}</p>
                   <div className="flex items-center gap-2">
-                    <button className="btn btn-solid" style={{ flex: 1 }} onClick={confirmPlacement}><Check size={15} /> Bevestig</button>
-                    <button className="btn" style={{ flex: 1 }} onClick={cancelPlacement}><X size={15} /> Annuleren</button>
+                    <button className="btn btn-solid" style={{ flex: 1 }} onClick={confirmPlacement}><Check size={15} /> {t("common.confirm")}</button>
+                    <button className="btn" style={{ flex: 1 }} onClick={cancelPlacement}><X size={15} /> {t("common.cancel")}</button>
                   </div>
                 </>
               ) : placing ? (
                 <>
-                  <p className="text-xs" style={{ color: "var(--muted)" }}>Tik op het bord om een hulpstuk te plaatsen.</p>
-                  <button className="btn" onClick={cancelPlacement}><X size={15} /> Annuleren</button>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>{t("game.tapBoardToPlace")}</p>
+                  <button className="btn" onClick={cancelPlacement}><X size={15} /> {t("common.cancel")}</button>
                 </>
               ) : selected ? (
                 <>
                   <p className="text-xs" style={{ color: "var(--muted)" }}>
-                    {moveTargets.length > 0 ? "Tik op een gemarkeerd vakje om te bewegen." : "Geen zet meer mogelijk — annuleer en probeer iets anders, of STOP."}
+                    {moveTargets.length > 0 ? t("game.tapHighlightedToMove") : t("game.noMoveCancelOrStop")}
                   </p>
                   <div className="flex items-center gap-2">
                     {movedThisTurn && (
-                      <button className="btn" style={{ flex: 1 }} onClick={cancelTurn}><RotateCcw size={14} /> Annuleer</button>
+                      <button className="btn" style={{ flex: 1 }} onClick={cancelTurn}><RotateCcw size={14} /> {t("game.cancelTurnShort")}</button>
                     )}
                     <button
                       className="btn"
                       style={{ flex: 1 }}
                       onClick={endTurn}
                       disabled={!movedThisTurn || !canStopHere}
-                      title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}
+                      title={!canStopHere ? t("game.stopWouldEnclose") : undefined}
                     >
-                      <Square size={14} /> STOP
+                      <Square size={14} /> {t("game.stop")}
                     </button>
                   </div>
                 </>
               ) : (
                 <button className="btn" onClick={togglePlacing} disabled={movedThisTurn || state.toolsRemaining[effectiveRole] <= 0}>
-                  <ToolIcon /> Plaats hulpstuk
+                  <ToolIcon /> {t("game.placeTool")}
                 </button>
               )}
             </div>
@@ -715,7 +722,7 @@ export default function GamePage() {
                           ref={isActive ? activeChipRef : undefined}
                           className={`move-strip-chip${isActive ? " active" : ""}`}
                           onClick={() => setHistoryIndex(turn.endIndex >= history.length - 1 ? null : turn.endIndex)}
-                          title={turn.lastEntry.type === "tool" ? "Hulpstuk" : "Pion"}
+                          title={turn.lastEntry.type === "tool" ? t("game.tool") : t("game.pawn")}
                         >
                           {turn.lastEntry.type === "tool" && "◆"}{turn.lastEntry.to[0]},{turn.lastEntry.to[1]}
                         </button>
@@ -730,7 +737,7 @@ export default function GamePage() {
 
           {myRole && !game.vs_computer && !game.local_multiplayer && (
             <button className="btn" onClick={openChat} style={{ position: "relative" }}>
-              <MessageCircle size={15} /> Chat
+              <MessageCircle size={15} /> {t("game.chat")}
               {unreadCount > 0 && <span className="notif-dot">{unreadCount > 9 ? "9+" : unreadCount}</span>}
             </button>
           )}
@@ -741,7 +748,7 @@ export default function GamePage() {
             <span className="flex items-center gap-1">
               <Avatar username={playerNames.A} size={18} /> {nameFor("A")} <Rating value={playerRatings.A} />
             </span>
-            <span>vs</span>
+            <span>{t("game.vs")}</span>
             <span className="flex items-center gap-1">
               <Avatar username={playerNames.B} size={18} /> {nameFor("B")} <Rating value={playerRatings.B} />
             </span>
@@ -749,24 +756,24 @@ export default function GamePage() {
           <p className="text-sm flex items-center gap-2">
             <Avatar username={nameFor(state.winner || state.turn)} size={22} />
             {state.winner
-              ? `${nameFor(state.winner)} heeft gewonnen!`
+              ? t("game.winner.wonBy", { name: nameFor(state.winner) })
               : game.local_multiplayer
-                ? `${nameFor(state.turn)} is aan zet`
-                : isMyTurn ? "Jij bent aan zet" : `${nameFor(state.turn)} is aan zet`}
+                ? t("game.playerIsUp", { name: nameFor(state.turn) })
+                : isMyTurn ? t("game.youAreUp") : t("game.playerIsUp", { name: nameFor(state.turn) })}
           </p>
           <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
-            <div>{nameFor("A")} — hulpstukken: {state.toolsRemaining.A}</div>
-            <div>{nameFor("B")} — hulpstukken: {state.toolsRemaining.B}</div>
-            {game.vs_computer && <div>Computer: {DIFFICULTY_LABELS[game.difficulty] || game.difficulty}</div>}
+            <div>{t("game.toolsRemaining", { name: nameFor("A"), count: state.toolsRemaining.A })}</div>
+            <div>{t("game.toolsRemaining", { name: nameFor("B"), count: state.toolsRemaining.B })}</div>
+            {game.vs_computer && <div>{t("game.computerLabel", { difficulty: t(`lobby.difficulty.${game.difficulty}`) || game.difficulty })}</div>}
           </div>
           {pendingPlacement ? (
             <div className="hide-mobile flex items-center gap-2">
-              <button className="btn btn-solid" onClick={confirmPlacement}><Check size={15} /> Bevestig</button>
-              <button className="btn" onClick={cancelPlacement}><X size={15} /> Annuleren</button>
+              <button className="btn btn-solid" onClick={confirmPlacement}><Check size={15} /> {t("common.confirm")}</button>
+              <button className="btn" onClick={cancelPlacement}><X size={15} /> {t("common.cancel")}</button>
             </div>
           ) : (
             <button className="btn hide-mobile" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining[effectiveRole] <= 0}>
-              <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
+              <ToolIcon /> {placing ? t("game.cancelPlacing") : t("game.placeTool")}
             </button>
           )}
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
@@ -785,19 +792,19 @@ export default function GamePage() {
           <div className="panel" style={{ maxWidth: 420, width: "100%", height: "min(80vh, 520px)", display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="flex items-center justify-between">
               <h2 className="text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
-                <MessageCircle size={15} /> Chat
+                <MessageCircle size={15} /> {t("game.chat")}
               </h2>
               <button className="btn btn-icon" onClick={() => setChatOpen(false)}><X size={16} /></button>
             </div>
             <div className="flex flex-col gap-3 overflow-y-auto flex-1">
               {messages.length === 0 && (
-                <p className="text-xs" style={{ color: "var(--muted)" }}>Nog geen berichten — zeg hallo!</p>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>{t("game.noMessagesYet")}</p>
               )}
               {messages.map((m) => (
                 <div key={m.id} className="text-xs flex items-start gap-2">
                   <Avatar username={m.profiles?.username} size={20} />
                   <div>
-                    <div className="mono" style={{ color: "var(--muted)" }}>{m.profiles?.username || "onbekend"}</div>
+                    <div className="mono" style={{ color: "var(--muted)" }}>{m.profiles?.username || t("common.unknown")}</div>
                     <div>{m.body}</div>
                   </div>
                 </div>
@@ -811,7 +818,7 @@ export default function GamePage() {
                 className="input flex-1"
                 value={chatText}
                 onChange={(e) => setChatText(e.target.value)}
-                placeholder="Typ een bericht..."
+                placeholder={t("game.chatPlaceholder")}
                 maxLength={500}
                 autoFocus
               />
