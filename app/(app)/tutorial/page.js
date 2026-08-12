@@ -9,7 +9,8 @@ import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter } from "
 import { chooseComputerTurn } from "@/lib/collisionAI";
 import { DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
 import Board, { diffMove } from "@/lib/Board";
-import { useSiteContent } from "@/lib/siteContent";
+import { useSiteContent, DEFAULT_CONTENT } from "@/lib/siteContent";
+import { useTranslation, useLocale } from "@/lib/i18n";
 
 // Uitlegpagina: een echte, volledig lokale oefenpartij tegen de computer
 // (Makkelijk) — niets wordt opgeslagen in Supabase, dus er is niets om op
@@ -51,7 +52,16 @@ const STEPS = [
 
 export default function TutorialPage() {
   const router = useRouter();
-  const t = useSiteContent();
+  const siteT = useSiteContent();
+  const tI18n = useTranslation();
+  const [locale] = useLocale();
+  // Zelfde compositieregel als de lobbypagina: bij Nederlands gebruiken we de
+  // door de admin bewerkbare site_content-tekst (zie lib/siteContent.js),
+  // voor elke andere taal de vertaalde dictionary uit lib/i18n/.
+  function t(key, params) {
+    if (locale === "nl" && key in DEFAULT_CONTENT) return siteT(key);
+    return tI18n(key, params);
+  }
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [state, setState] = useState(() => freshState());
   const [selected, setSelected] = useState(null);
@@ -171,7 +181,7 @@ export default function TutorialPage() {
   function handlePlaceClick(r, c) {
     if (!isMyTurn || !placing) return;
     const result = applyPlaceTool(state, "A", r, c);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) { setError(t(`engine.error.${result.error}`)); return; }
     setError(null);
     setPlacing(false);
     setState(result.state);
@@ -180,7 +190,7 @@ export default function TutorialPage() {
   function handleMove(dir) {
     if (!isMyTurn || !selected) return;
     const result = applyMove(state, "A", [selected.r, selected.c], dir, false);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) { setError(t(`engine.error.${result.error}`)); return; }
     setError(null);
     setState(result.state);
     if (result.winningMove) return;
@@ -192,7 +202,7 @@ export default function TutorialPage() {
   function endTurn() {
     if (!selected) return;
     if (!bothPawnsCanReachCenter(state.board, state.pawnPos)) {
-      setError("Je kunt hier niet stoppen — dit zou een pion volledig insluiten. Beweeg verder.");
+      setError(t("engine.error.cannotStopHere"));
       return;
     }
     setError(null);
@@ -248,10 +258,9 @@ export default function TutorialPage() {
   return (
     <main className="min-h-screen px-4 py-8 flex flex-col items-center gap-6">
       <div className="flex flex-col items-center gap-2 text-center" style={{ maxWidth: 480 }}>
-        <h1 className="text-xl font-extrabold uppercase tracking-widest">Uitleg</h1>
+        <h1 className="text-xl font-extrabold uppercase tracking-widest">{t("tutorial.title")}</h1>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Het beste leer je Collision door het te spelen. Hieronder speel je een echte oefenpartij
-          tegen de computer (Makkelijk) — niets wordt opgeslagen, dus experimenteer gerust. Volg de tips.
+          {t("tutorial.intro")}
         </p>
       </div>
 
@@ -272,11 +281,11 @@ export default function TutorialPage() {
               }}
             >
               <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, flexShrink: 0, color: "#111" }}>
-                Tip
+                {t("tutorial.tip")}
               </span>
               <p style={{ fontSize: 14, flex: 1, margin: 0, color: "#111" }}>{t(currentStep.key)}</p>
               {stepIndex < STEPS.length - 1 && (
-                <button className="btn btn-icon" onClick={() => setStepIndex((i) => i + 1)} title="Volgende tip" style={{ flexShrink: 0 }}>
+                <button className="btn btn-icon" onClick={() => setStepIndex((i) => i + 1)} title={t("tutorial.nextTip")} style={{ flexShrink: 0 }}>
                   <ArrowRight size={15} />
                 </button>
               )}
@@ -291,7 +300,7 @@ export default function TutorialPage() {
             highlight={highlightPawn}
             onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
             labelTopLeft="Computer"
-            labelBottomRight="Jij"
+            labelBottomRight={t("tutorial.labelYou")}
           />
 
           {selected && isMyTurn && (
@@ -300,7 +309,7 @@ export default function TutorialPage() {
               <DirBtn icon={ArrowUp} onClick={() => handleMove("up")} />
               <div />
               <DirBtn icon={ArrowLeft} onClick={() => handleMove("left")} />
-              <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? "Hier stoppen zou een pion insluiten" : undefined}><Square size={14} /> STOP</button>
+              <button className="btn" onClick={endTurn} disabled={!movedThisTurn || !canStopHere} title={!canStopHere ? t("game.stopWouldEnclose") : undefined}><Square size={14} /> {t("game.stop")}</button>
               <DirBtn icon={ArrowRight} onClick={() => handleMove("right")} />
               <div />
               <DirBtn icon={ArrowDown} onClick={() => handleMove("down")} />
@@ -311,25 +320,25 @@ export default function TutorialPage() {
 
         <aside className="panel w-64 flex flex-col gap-3">
           <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
-            <div>Jij — hulpstukken: {state.toolsRemaining.A}</div>
-            <div>Computer — hulpstukken: {state.toolsRemaining.B}</div>
+            <div>{t("game.toolsRemaining", { name: t("tutorial.labelYou"), count: state.toolsRemaining.A })}</div>
+            <div>{t("game.toolsRemaining", { name: "Computer", count: state.toolsRemaining.B })}</div>
           </div>
 
           {state.winner ? (
             <p className="text-sm flex items-center gap-2">
               <Trophy size={16} style={{ color: "var(--accent)" }} />
-              {state.winner === "A" ? "Je hebt gewonnen!" : "De computer heeft gewonnen."}
+              {state.winner === "A" ? t("game.winner.youWon") : t("tutorial.winner.computerWon")}
             </p>
           ) : (
             <p className="text-sm">
-              {isMyTurn ? "Jij bent aan zet" : "Computer is aan zet"}
+              {isMyTurn ? t("game.youAreUp") : t("tutorial.computerTurn")}
             </p>
           )}
 
           <button className="btn" onClick={togglePlacing} disabled={!isMyTurn || movedThisTurn || state.toolsRemaining.A <= 0}>
-            <ToolIcon /> {placing ? "Annuleer plaatsen" : "Plaats hulpstuk"}
+            <ToolIcon /> {placing ? t("game.cancelPlacing") : t("game.placeTool")}
           </button>
-          <button className="btn" onClick={restart}><RotateCcw size={15} /> Opnieuw beginnen</button>
+          <button className="btn" onClick={restart}><RotateCcw size={15} /> {t("tutorial.restart")}</button>
           {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
         </aside>
       </div>
