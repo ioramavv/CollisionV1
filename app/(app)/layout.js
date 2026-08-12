@@ -2,20 +2,27 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, Megaphone } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, Megaphone, Globe } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 import { rememberDevSession, isDevAccount } from "@/lib/devAccountSwitch";
+import { useTranslation, useLocale } from "@/lib/i18n";
+import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/lib/i18n/locales";
 
+// labelKey i.p.v. een vaste tekst — vertaald ten tijde van renderen (zie
+// t(link.labelKey) hieronder), zodat dezelfde lijst voor zowel de
+// desktop-zijbalk, de mobiele kopbalk als de onderbalk kan dienen.
 const LINKS = [
-  { href: "/lobby", label: "Lobby", icon: Swords },
-  { href: "/friends", label: "Vrienden", icon: Users },
-  { href: "/tutorial", label: "Uitleg", icon: HelpCircle },
+  { href: "/lobby", labelKey: "layout.nav.lobby", icon: Swords },
+  { href: "/friends", labelKey: "layout.nav.friends", icon: Users },
+  { href: "/tutorial", labelKey: "layout.nav.tutorial", icon: HelpCircle },
 ];
 
 export default function AppLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslation();
+  const [locale, setLocale] = useLocale();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -24,6 +31,7 @@ export default function AppLayout({ children }) {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [announcements, setAnnouncements] = useState([]);
   // Sluit het account-menu automatisch zodra er (client-side) genavigeerd
@@ -32,6 +40,7 @@ export default function AppLayout({ children }) {
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
     setAccountMenuOpen(false);
+    setLangMenuOpen(false);
   }
 
   useEffect(() => {
@@ -153,7 +162,7 @@ export default function AppLayout({ children }) {
     setFeedbackError(null);
     const { error } = await supabase.from("feedback").insert({ user_id: user.id, message });
     setFeedbackSending(false);
-    if (error) { setFeedbackError("Versturen mislukt: " + error.message); return; }
+    if (error) { setFeedbackError(t("layout.feedback.error", { message: error.message })); return; }
     setFeedbackSent(true);
     setFeedbackText("");
   }
@@ -173,16 +182,29 @@ export default function AppLayout({ children }) {
           <div className="sidebar-brand">
             <Logo size={20} />
           </div>
-          {/* Zelfde account-menu als op mobiel (Profiel/Feedback/Admin/
-              Uitloggen), ook hier rechtsboven bereikbaar via de avatar —
-              op elke pagina, ook Admin. */}
-          <button
-            onClick={() => setAccountMenuOpen(true)}
-            aria-label="Account-menu openen"
-            style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0 }}
-          >
-            {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={24} />}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* Taalknop — naast de account-avatar, zodat 'm meteen te vinden
+                is zonder eerst een menu te hoeven openen (zie ook de
+                mobiele kopbalk hieronder). */}
+            <button
+              className="btn btn-icon"
+              onClick={() => setLangMenuOpen((v) => !v)}
+              aria-label={t("layout.language.choose")}
+              title={t("layout.language.choose")}
+            >
+              <Globe size={15} />
+            </button>
+            {/* Zelfde account-menu als op mobiel (Profiel/Feedback/Admin/
+                Uitloggen), ook hier rechtsboven bereikbaar via de avatar —
+                op elke pagina, ook Admin. */}
+            <button
+              onClick={() => setAccountMenuOpen(true)}
+              aria-label={t("layout.account.openMenu")}
+              style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0 }}
+            >
+              {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={24} />}
+            </button>
+          </div>
         </div>
         <div className="sidebar-body">
           <ul className="sidebar-nav">
@@ -198,20 +220,20 @@ export default function AppLayout({ children }) {
                       <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
                     )}
                   </span>
-                  {link.label}
+                  {t(link.labelKey)}
                 </Link>
               </li>
             ))}
             <li>
               <Link href="/profile" className={`sidebar-link${pathname.startsWith("/profile") ? " active" : ""}`}>
                 <UserCircle size={17} strokeWidth={2} />
-                Profiel
+                {t("layout.nav.profile")}
               </Link>
             </li>
             <li>
               <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={openFeedback}>
                 <MessageSquarePlus size={17} strokeWidth={2} />
-                Feedback
+                {t("layout.nav.feedback")}
               </button>
             </li>
             {isAdmin && (
@@ -221,7 +243,7 @@ export default function AppLayout({ children }) {
                   className={`sidebar-link${pathname.startsWith("/admin") ? " active" : ""}`}
                 >
                   <ShieldCheck size={17} strokeWidth={2} />
-                  Admin
+                  {t("layout.nav.admin")}
                 </Link>
               </li>
             )}
@@ -235,7 +257,7 @@ export default function AppLayout({ children }) {
             )}
             <button className="btn" onClick={signOut}>
               <LogOut size={15} strokeWidth={2} />
-              Uitloggen
+              {t("layout.nav.signOut")}
             </button>
           </div>
         </div>
@@ -255,7 +277,7 @@ export default function AppLayout({ children }) {
                 key={link.href}
                 href={link.href}
                 className={`mobile-topbar-tab${pathname.startsWith(link.href) ? " active" : ""}`}
-                aria-label={link.label}
+                aria-label={t(link.labelKey)}
               >
                 <span style={{ position: "relative", display: "inline-flex" }}>
                   <link.icon size={19} strokeWidth={2} />
@@ -267,13 +289,22 @@ export default function AppLayout({ children }) {
             ))}
           </div>
         )}
-        <button
-          className="mobile-topbar-avatar"
-          onClick={() => setAccountMenuOpen(true)}
-          aria-label="Account-menu openen"
-        >
-          {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={26} />}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <button
+            className="btn btn-icon"
+            onClick={() => setLangMenuOpen((v) => !v)}
+            aria-label={t("layout.language.choose")}
+          >
+            <Globe size={15} />
+          </button>
+          <button
+            className="mobile-topbar-avatar"
+            onClick={() => setAccountMenuOpen(true)}
+            aria-label={t("layout.account.openMenu")}
+          >
+            {profile && <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={26} />}
+          </button>
+        </div>
       </header>
 
       <main className={`app-content${!isGamePage ? " app-content-with-bottom-nav" : ""}`}>
@@ -281,7 +312,7 @@ export default function AppLayout({ children }) {
           <div key={a.id} className="announcement-banner">
             <Megaphone size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
             <span>{a.message}</span>
-            <button className="announcement-banner-close" onClick={() => dismissAnnouncement(a.id)} aria-label="Melding sluiten">
+            <button className="announcement-banner-close" onClick={() => dismissAnnouncement(a.id)} aria-label={t("common.close")}>
               <X size={15} />
             </button>
           </div>
@@ -308,11 +339,41 @@ export default function AppLayout({ children }) {
                     <span className="notif-dot">{pendingRequests > 9 ? "9+" : pendingRequests}</span>
                   )}
                 </span>
-                {link.label}
+                {t(link.labelKey)}
               </Link>
             ))}
           </div>
         </nav>
+      )}
+
+      {langMenuOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "flex-start", justifyContent: "flex-end", zIndex: 55,
+          }}
+          onClick={() => setLangMenuOpen(false)}
+        >
+          <div
+            className="panel"
+            style={{ width: "100%", maxWidth: 200, margin: "8px 8px 0 0", display: "flex", flexDirection: "column", gap: 2 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {SUPPORTED_LOCALES.map((code) => (
+              <button
+                key={code}
+                className="sidebar-link"
+                style={{
+                  width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer",
+                  color: code === locale ? "var(--accent)" : undefined, fontWeight: code === locale ? 600 : undefined,
+                }}
+                onClick={() => { setLocale(code); setLangMenuOpen(false); }}
+              >
+                {LOCALE_LABELS[code]}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {accountMenuOpen && (
@@ -339,21 +400,21 @@ export default function AppLayout({ children }) {
             </div>
             <Link href="/profile" className="sidebar-link" onClick={() => setAccountMenuOpen(false)}>
               <UserCircle size={17} strokeWidth={2} />
-              Profiel
+              {t("layout.nav.profile")}
             </Link>
             <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={() => { setAccountMenuOpen(false); openFeedback(); }}>
               <MessageSquarePlus size={17} strokeWidth={2} />
-              Feedback
+              {t("layout.nav.feedback")}
             </button>
             {isAdmin && (
               <Link href="/admin" className="sidebar-link" onClick={() => setAccountMenuOpen(false)}>
                 <ShieldCheck size={17} strokeWidth={2} />
-                Admin
+                {t("layout.nav.admin")}
               </Link>
             )}
             <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={signOut}>
               <LogOut size={17} strokeWidth={2} />
-              Uitloggen
+              {t("layout.nav.signOut")}
             </button>
           </div>
         </div>
@@ -368,11 +429,11 @@ export default function AppLayout({ children }) {
         >
           <div className="panel" style={{ maxWidth: 400, width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>Feedback</h2>
+              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>{t("layout.nav.feedback")}</h2>
               <button className="btn btn-icon" onClick={() => setFeedbackOpen(false)}><X size={16} /></button>
             </div>
             {feedbackSent ? (
-              <p className="text-sm">Bedankt voor je feedback!</p>
+              <p className="text-sm">{t("layout.feedback.thanks")}</p>
             ) : (
               <form onSubmit={submitFeedback} className="flex flex-col gap-3">
                 <textarea
@@ -380,12 +441,12 @@ export default function AppLayout({ children }) {
                   rows={5}
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="Wat wil je laten weten?"
+                  placeholder={t("layout.feedback.placeholder")}
                   autoFocus
                 />
                 {feedbackError && <p className="text-xs" style={{ color: "#e07a5f" }}>{feedbackError}</p>}
                 <button className="btn btn-solid" type="submit" disabled={feedbackSending || !feedbackText.trim()}>
-                  {feedbackSending ? "Versturen..." : "Versturen"}
+                  {feedbackSending ? t("layout.feedback.sending") : t("layout.feedback.send")}
                 </button>
               </form>
             )}
