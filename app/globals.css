@@ -32,20 +32,27 @@
      bordkleuren (omgedraaid per thema) i.p.v. eigen losse hex-waarden. */
   --callout-bg: var(--maple);
   --callout-text: var(--walnut);
+  /* Kleur van het geblokte achtergrondpatroon hieronder bij body — licht
+     genoeg om als textuur te lezen tegen de donkere achtergrond. */
+  --bg-pattern: rgba(216, 191, 140, 0.04);
 }
 
-/* Crème — warm, perkamentachtig licht thema, in dezelfde warme familie als
-   --maple/--board-light, maar als eigen variabelen (die twee blijven zelf
-   ongewijzigd). */
+/* Crème — hout/koffiekleurig, "handmade" thema: geen wit-met-beige, maar een
+   duidelijk getinte, verzadigde koffie-met-melk-achtergrond met een donkerder
+   koffiebruine paneelrand en een duidelijk zichtbaar geblokt patroon (net als
+   bij donker), i.p.v. het bijna-wit dat licht al heeft. */
 [data-theme="cream"] {
-  --bg: #ede0c4;
-  --panel: #fbf3e1;
-  --panel-line: #d9c49a;
-  --text: #2e2416;
-  --muted: #8a7657;
-  --panel-shade: #ddc79c;
+  --bg: #d9c39c;
+  --panel: #f0e2c4;
+  --panel-line: #b8935e;
+  --text: #2b2013;
+  --muted: #7a6142;
+  --panel-shade: #c9a873;
   --callout-bg: var(--walnut);
   --callout-text: var(--maple);
+  /* Donkerder koffiebruin, hoger dekkend dan bij donker — anders verdwijnt
+     het patroon tegen deze lichtere achtergrond. */
+  --bg-pattern: rgba(120, 90, 55, 0.09);
 }
 
 /* Licht — neutraal, koeler licht thema. */
@@ -58,6 +65,7 @@
   --panel-shade: #d9d9d3;
   --callout-bg: var(--walnut);
   --callout-text: var(--maple);
+  --bg-pattern: rgba(0, 0, 0, 0.035);
 }
 
 * {
@@ -73,11 +81,11 @@ body {
      pagina-overgang hieronder. */
   overflow-x: hidden;
   background-color: var(--bg);
-  /* Zeer subtiel geblokt patroon — een echo van het speelbord op de
-     achtergrond van elke pagina. Gebruikt de bordkleur (--board-dark) op
-     zeer lage dekking over de donkere achtergrond, zodat het als textuur
-     leesbaar is zonder ooit van de content af te leiden. */
-  background-image: repeating-conic-gradient(rgba(216, 191, 140, 0.04) 0% 25%, transparent 0% 50%);
+  /* Subtiel geblokt patroon — een echo van het speelbord op de achtergrond
+     van elke pagina. Kleur/dekking komt uit --bg-pattern (per thema anders
+     ingevuld hierboven), zodat het patroon in elk thema even herkenbaar
+     aanwezig is zonder ooit van de content af te leiden. */
+  background-image: repeating-conic-gradient(var(--bg-pattern) 0% 25%, transparent 0% 50%);
   background-size: 36px 36px;
   background-attachment: fixed;
 }
