@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight, ChevronDown, ArrowLeftRight,
-  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy, FileEdit,
+  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy, FileEdit, Bug,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
@@ -66,6 +66,12 @@ export default function AdminPage() {
   const [announcementPosting, setAnnouncementPosting] = useState(false);
   const [announcementError, setAnnouncementError] = useState(null);
 
+  const [bugfixes, setBugfixes] = useState([]);
+  const [bugfixTitleInput, setBugfixTitleInput] = useState("");
+  const [bugfixDetailInput, setBugfixDetailInput] = useState("");
+  const [bugfixPosting, setBugfixPosting] = useState(false);
+  const [bugfixError, setBugfixError] = useState(null);
+
   useEffect(() => {
     let channel;
 
@@ -82,6 +88,7 @@ export default function AdminPage() {
         { count: totalCount },
         { count: todayCount },
         { data: announcementList, error: announcementListError },
+        { data: bugfixList, error: bugfixListError },
       ] = await Promise.all([
         supabase.from("profiles").select("id, username, rating, created_at").order("created_at", { ascending: false }),
         supabase.from("feedback").select("id, user_id, message, created_at, profiles:user_id(username)").order("created_at", { ascending: false }),
@@ -104,9 +111,10 @@ export default function AdminPage() {
         supabase.from("games").select("id", { count: "exact", head: true }),
         supabase.from("games").select("id", { count: "exact", head: true }).gte("created_at", startOfToday.toISOString()),
         supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+        supabase.from("bugfixes").select("*").order("created_at", { ascending: false }),
       ]);
 
-      const firstError = usersError || feedbackError || activeError || waitingError || finishedError || announcementListError;
+      const firstError = usersError || feedbackError || activeError || waitingError || finishedError || announcementListError || bugfixListError;
       if (firstError) setError("Laden mislukt: " + firstError.message);
 
       setUsers(userList || []);
@@ -116,6 +124,7 @@ export default function AdminPage() {
       setFinishedGames(finished || []);
       setGameCounts({ total: totalCount || 0, today: todayCount || 0 });
       setAnnouncements(announcementList || []);
+      setBugfixes(bugfixList || []);
     }
 
     async function init() {
@@ -141,6 +150,7 @@ export default function AdminPage() {
         .on("postgres_changes", { event: "*", schema: "public", table: "feedback" }, refreshAll)
         .on("postgres_changes", { event: "*", schema: "public", table: "games" }, refreshAll)
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements" }, refreshAll)
+        .on("postgres_changes", { event: "*", schema: "public", table: "bugfixes" }, refreshAll)
         .subscribe(async (status) => {
           if (status === "SUBSCRIBED") {
             await channel.track({ username: profile.username, online_at: new Date().toISOString() });
@@ -267,6 +277,46 @@ export default function AdminPage() {
     const { error } = await supabase.from("announcements").delete().eq("id", id);
     if (error) { setAnnouncementError("Verwijderen mislukt: " + error.message); return; }
     setAnnouncements((list) => list.filter((a) => a.id !== id));
+  }
+
+  // Nieuwe bugfix-entry — alleen Nederlands invulbaar hier; vertalingen
+  // (EN/DE/FR/ES/IT) moeten er apart bij (bv. handmatig via SQL, of vraag
+  // het in een volgend gesprek) — anders valt de UI in andere talen terug
+  // op deze Nederlandse tekst (zie lib/i18n en lobby/page.js). Start altijd
+  // als concept (confirmed = false): pas na expliciet bevestigen hieronder
+  // wordt een entry zichtbaar in de lobby.
+  async function postBugfix(e) {
+    e.preventDefault();
+    const title = bugfixTitleInput.trim();
+    const detail = bugfixDetailInput.trim();
+    if (!title || !detail) return;
+    setBugfixPosting(true);
+    setBugfixError(null);
+    const { data, error } = await supabase
+      .from("bugfixes")
+      .insert({ title: { nl: title }, detail: { nl: detail }, confirmed: false })
+      .select()
+      .single();
+    setBugfixPosting(false);
+    if (error) { setBugfixError("Plaatsen mislukt: " + error.message); return; }
+    setBugfixes((list) => [data, ...list]);
+    setBugfixTitleInput("");
+    setBugfixDetailInput("");
+  }
+
+  async function toggleBugfixConfirmed(fix) {
+    setBugfixError(null);
+    const { error } = await supabase.from("bugfixes").update({ confirmed: !fix.confirmed }).eq("id", fix.id);
+    if (error) { setBugfixError("Wijzigen mislukt: " + error.message); return; }
+    setBugfixes((list) => list.map((x) => (x.id === fix.id ? { ...x, confirmed: !fix.confirmed } : x)));
+  }
+
+  async function deleteBugfix(id) {
+    if (!window.confirm("Deze bugfix-entry verwijderen?")) return;
+    setBugfixError(null);
+    const { error } = await supabase.from("bugfixes").delete().eq("id", id);
+    if (error) { setBugfixError("Verwijderen mislukt: " + error.message); return; }
+    setBugfixes((list) => list.filter((x) => x.id !== id));
   }
 
   if (loading || !allowed) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
@@ -499,6 +549,67 @@ export default function AdminPage() {
                     <Trash2 size={14} />
                   </button>
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
+          <Bug size={15} /> Opgeloste bugs
+        </h2>
+        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+          Nieuwe entries staan als concept tot je ze bevestigt — pas dan zijn ze zichtbaar in de lobby. Alleen
+          Nederlands hier invullen; voor de andere talen (EN/DE/FR/ES/IT) val je anders terug op deze tekst, tenzij
+          je &apos;m later apart laat vertalen.
+        </p>
+        <form onSubmit={postBugfix} className="flex flex-col gap-2 mb-3">
+          <input
+            type="text"
+            className="input"
+            placeholder="Titel..."
+            value={bugfixTitleInput}
+            onChange={(e) => setBugfixTitleInput(e.target.value)}
+            maxLength={120}
+          />
+          <textarea
+            className="input"
+            rows={2}
+            placeholder="Toelichting..."
+            value={bugfixDetailInput}
+            onChange={(e) => setBugfixDetailInput(e.target.value)}
+          />
+          <button className="btn btn-solid" type="submit" disabled={bugfixPosting || !bugfixTitleInput.trim() || !bugfixDetailInput.trim()}>
+            <Send size={14} /> {bugfixPosting ? "Bezig..." : "Toevoegen als concept"}
+          </button>
+        </form>
+        {bugfixError && <p className="text-xs mb-2" style={{ color: "#e07a5f" }}>{bugfixError}</p>}
+        {bugfixes.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Nog geen bugfixes.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {bugfixes.map((fix) => (
+              <li key={fix.id} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span style={{ opacity: fix.confirmed ? 1 : 0.6 }}>
+                    <strong>{fix.title?.nl || fix.title?.en}</strong>{" "}
+                    <Badge tone={fix.confirmed ? "active" : "neutral"}>{fix.confirmed ? "zichtbaar" : "concept"}</Badge>
+                  </span>
+                  <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                    <button
+                      className="btn btn-icon"
+                      title={fix.confirmed ? "Verbergen" : "Bevestigen (maakt zichtbaar)"}
+                      onClick={() => toggleBugfixConfirmed(fix)}
+                    >
+                      {fix.confirmed ? <X size={14} /> : <Check size={14} />}
+                    </button>
+                    <button className="btn btn-icon btn-danger" title="Verwijderen" onClick={() => deleteBugfix(fix.id)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{fix.detail?.nl || fix.detail?.en}</p>
               </li>
             ))}
           </ul>

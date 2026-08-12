@@ -4,15 +4,27 @@ import { useRouter } from "next/navigation";
 import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle, ArrowLeftRight, Archive, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
-import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/collisionAI";
-import { BUGFIXES } from "@/lib/bugfixes";
+import { DIFFICULTIES } from "@/lib/collisionAI";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
 import { getDevSession } from "@/lib/devAccountSwitch";
-import { useSiteContent } from "@/lib/siteContent";
+import { useSiteContent, DEFAULT_CONTENT } from "@/lib/siteContent";
+import { useTranslation, useLocale } from "@/lib/i18n";
 
 export default function LobbyPage() {
   const router = useRouter();
-  const t = useSiteContent();
+  const tI18n = useTranslation();
+  const [locale] = useLocale();
+  const siteT = useSiteContent();
+  // site_content (het admin-tekst-CMS, zie lib/siteContent.js) dekt maar een
+  // handvol keys (sectietitels/kaarten) en is altijd Nederlands — die
+  // override geldt dus alleen als de site-taal ook Nederlands is; voor elke
+  // andere taal (en voor alle keys die site_content niet kent) gebruiken we
+  // gewoon de vertaalde tekst uit lib/i18n.
+  function t(key, params) {
+    if (locale === "nl" && key in DEFAULT_CONTENT) return siteT(key);
+    return tI18n(key, params);
+  }
+
   const [user, setUser] = useState(null);
   const [openGames, setOpenGames] = useState([]);
   const [invites, setInvites] = useState([]);
@@ -21,6 +33,7 @@ export default function LobbyPage() {
   const [finishedActionId, setFinishedActionId] = useState(null);
   const [finishedActionError, setFinishedActionError] = useState(null);
   const [archivedGames, setArchivedGames] = useState([]);
+  const [bugfixes, setBugfixes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newGameStep, setNewGameStep] = useState(null); // null | "invite" | "computer" | "local"
   const [localNameA, setLocalNameA] = useState("");
@@ -48,6 +61,7 @@ export default function LobbyPage() {
       setUser(user);
 
       await refreshGames(user.id);
+      await refreshBugfixes();
       setLoading(false);
 
       channel = supabase
@@ -161,7 +175,7 @@ export default function LobbyPage() {
     const { error } = await supabase.from("archived_games").insert({ user_id: user.id, game_id: gameId });
     setFinishedActionId(null);
     if (error && error.code !== "23505") {
-      setFinishedActionError("Archiveren mislukt: " + error.message);
+      setFinishedActionError(t("lobby.error.archiveFailed", { message: error.message }));
       return;
     }
     setFinishedGames((games) => games.filter((g) => g.id !== gameId));
@@ -174,7 +188,7 @@ export default function LobbyPage() {
     const { error } = await supabase.from("dismissed_games").insert({ user_id: user.id, game_id: gameId });
     setFinishedActionId(null);
     if (error && error.code !== "23505") {
-      setFinishedActionError("Negeren mislukt: " + error.message);
+      setFinishedActionError(t("lobby.error.dismissFailed", { message: error.message }));
       return;
     }
     setFinishedGames((games) => games.filter((g) => g.id !== gameId));
@@ -196,6 +210,18 @@ export default function LobbyPage() {
     const byId = Object.fromEntries((games || []).map((g) => [g.id, g]));
 
     setArchivedGames(entries.map((e) => ({ ...e, game: byId[e.game_id] })).filter((e) => e.game));
+  }
+
+  // Opgeloste bugs (zie adminpagina voor het beheer) — alleen bevestigde
+  // entries zijn hier zichtbaar (RLS filtert dit ook af, maar de query hoeft
+  // dan geen onbevestigde concepten op te halen).
+  async function refreshBugfixes() {
+    const { data } = await supabase
+      .from("bugfixes")
+      .select("id, title, detail, created_at")
+      .eq("confirmed", true)
+      .order("created_at", { ascending: false });
+    setBugfixes(data || []);
   }
 
   // Dev-gemak: direct wisselen naar het "JorADMIN"-account, zonder uit te
@@ -237,8 +263,8 @@ export default function LobbyPage() {
   async function createLocalGame() {
     const state = freshState();
     state.localNames = {
-      A: localNameA.trim() || "Speler 1",
-      B: localNameB.trim() || "Speler 2",
+      A: localNameA.trim() || t("lobby.modal.local.player1Placeholder"),
+      B: localNameB.trim() || t("lobby.modal.local.player2Placeholder"),
     };
     const { data, error } = await supabase
       .from("games")
@@ -283,7 +309,7 @@ export default function LobbyPage() {
       .single();
     setJoiningId(null);
     if (error || !data) {
-      setJoinError("Iemand anders was je net voor — deze partij is niet meer beschikbaar.");
+      setJoinError(t("lobby.error.gameTaken"));
       await refreshGames(user.id);
       return;
     }
@@ -291,13 +317,13 @@ export default function LobbyPage() {
   }
 
   async function deleteGame(gameId) {
-    if (!window.confirm("Deze partij verwijderen?")) return;
+    if (!window.confirm(t("lobby.confirm.deleteGame"))) return;
     setDeleteError(null);
     setDeletingId(gameId);
     const { error } = await supabase.from("games").delete().eq("id", gameId);
     setDeletingId(null);
     if (error) {
-      setDeleteError("Verwijderen mislukt: " + error.message);
+      setDeleteError(t("lobby.error.deleteFailed", { message: error.message }));
       return;
     }
     await refreshGames(user.id);
@@ -318,7 +344,7 @@ export default function LobbyPage() {
     const opponentName = g.vs_computer
       ? "Computer"
       : g.local_multiplayer
-        ? (g.local_name_b || "Speler 2")
+        ? (g.local_name_b || t("lobby.modal.local.player2Placeholder"))
         : (g.player_a === user.id ? g.b?.username : g.a?.username);
     const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
     const canDelete = g.status === "waiting" && g.player_a === user.id;
@@ -330,12 +356,12 @@ export default function LobbyPage() {
       >
         <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
           <Avatar username={opponentName} />
-          {opponentName ? `Partij met ${opponentName}` : "Partij"} <Rating value={opponentRating} />
-          {g.status === "waiting" && <Badge tone="waiting">wacht op tegenstander</Badge>}
+          {opponentName ? t("lobby.game.withOpponent", { name: opponentName }) : t("lobby.game.generic")} <Rating value={opponentRating} />
+          {g.status === "waiting" && <Badge tone="waiting">{t("lobby.badge.waitingForOpponent")}</Badge>}
           {g.vs_computer ? (
-            <Badge tone="warning"><Cpu size={12} /> {DIFFICULTY_LABELS[g.difficulty] || "computer"} (bèta)</Badge>
+            <Badge tone="warning"><Cpu size={12} /> {t(`lobby.difficulty.${g.difficulty}`)} {t("common.beta")}</Badge>
           ) : g.local_multiplayer ? (
-            <Badge tone="neutral"><Smartphone size={12} /> lokaal</Badge>
+            <Badge tone="neutral"><Smartphone size={12} /> {t("lobby.badge.local")}</Badge>
           ) : null}
         </span>
         {canDelete && (
@@ -352,7 +378,7 @@ export default function LobbyPage() {
                 }}
               >
                 <button className="btn btn-danger" onClick={() => { setOpenMenuId(null); deleteGame(g.id); }} disabled={deletingId === g.id}>
-                  <Trash2 size={14} /> {deletingId === g.id ? "Bezig..." : "Verwijderen"}
+                  <Trash2 size={14} /> {deletingId === g.id ? t("common.busy") : t("common.delete")}
                 </button>
               </div>
             )}
@@ -378,38 +404,38 @@ export default function LobbyPage() {
         >
           <div className="panel" style={{ maxWidth: 360, width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>Nieuwe partij</h2>
+              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>{t("lobby.modal.title")}</h2>
               <button className="btn btn-icon" onClick={closeNewGameModal}><X size={16} /></button>
             </div>
 
             {newGameStep === "local" && (
               <div className="flex flex-col gap-3">
                 <p className="text-xs" style={{ color: "var(--muted)" }}>
-                  Speel om beurten tegen elkaar op dit toestel — handig als je samen op de bank zit. Niks wordt gedeeld met een ander account.
+                  {t("lobby.modal.local.intro")}
                 </p>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs mono" style={{ color: "var(--muted)" }}>Naam speler 1 (bruin)</label>
+                  <label className="text-xs mono" style={{ color: "var(--muted)" }}>{t("lobby.modal.local.player1Label")}</label>
                   <input
                     type="text"
                     value={localNameA}
                     onChange={(e) => setLocalNameA(e.target.value)}
-                    placeholder="Speler 1"
+                    placeholder={t("lobby.modal.local.player1Placeholder")}
                     className="input"
                     maxLength={30}
                     autoFocus
                   />
-                  <label className="text-xs mono" style={{ color: "var(--muted)" }}>Naam speler 2 (wit)</label>
+                  <label className="text-xs mono" style={{ color: "var(--muted)" }}>{t("lobby.modal.local.player2Label")}</label>
                   <input
                     type="text"
                     value={localNameB}
                     onChange={(e) => setLocalNameB(e.target.value)}
-                    placeholder="Speler 2"
+                    placeholder={t("lobby.modal.local.player2Placeholder")}
                     className="input"
                     maxLength={30}
                   />
                 </div>
                 <button className="btn btn-solid" onClick={createLocalGame}>
-                  <Smartphone size={15} /> Start lokale partij
+                  <Smartphone size={15} /> {t("lobby.modal.local.start")}
                 </button>
               </div>
             )}
@@ -421,12 +447,12 @@ export default function LobbyPage() {
                   style={{ color: "#e0b24c", background: "rgba(224, 178, 76, 0.12)", border: "1px solid rgba(224, 178, 76, 0.3)", borderRadius: 8, padding: "6px 10px" }}
                 >
                   <TriangleAlert size={14} strokeWidth={2} />
-                  Bèta: de computerspeler is nog in ontwikkeling en speelt niet altijd goed of foutloos.
+                  {t("lobby.modal.computer.betaWarning")}
                 </p>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>Kies een moeilijkheidsgraad:</p>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>{t("lobby.modal.computer.chooseDifficulty")}</p>
                 {DIFFICULTIES.map((difficulty) => (
                   <button key={difficulty} className="btn" onClick={() => createComputerGame(difficulty)}>
-                    <Cpu size={15} /> {DIFFICULTY_LABELS[difficulty]}
+                    <Cpu size={15} /> {t(`lobby.difficulty.${difficulty}`)}
                   </button>
                 ))}
               </div>
@@ -436,7 +462,7 @@ export default function LobbyPage() {
               <div className="flex flex-col gap-3">
                 {friendsList.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>Jouw vrienden</p>
+                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>{t("lobby.modal.invite.yourFriends")}</p>
                     <ul className="flex flex-col gap-2" style={{ maxHeight: 220, overflowY: "auto" }}>
                       {friendsList.map((f) => (
                         <li key={f.id} className="flex items-center justify-between text-sm">
@@ -445,12 +471,12 @@ export default function LobbyPage() {
                             {f.username} <Rating value={f.rating} />
                           </span>
                           <button className="btn" onClick={() => createGame(f.id)}>
-                            <UserPlus size={15} /> Uitnodigen
+                            <UserPlus size={15} /> {t("lobby.modal.invite.invite")}
                           </button>
                         </li>
                       ))}
                     </ul>
-                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>Of zoek iemand anders op</p>
+                    <p className="text-xs mono" style={{ color: "var(--muted)" }}>{t("lobby.modal.invite.orSearch")}</p>
                   </div>
                 )}
                 <form onSubmit={searchUsers} className="flex items-center gap-2">
@@ -458,7 +484,7 @@ export default function LobbyPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Zoek op gebruikersnaam..."
+                    placeholder={t("lobby.modal.invite.searchPlaceholder")}
                     className="input flex-1"
                     autoFocus={friendsList.length === 0}
                   />
@@ -473,7 +499,7 @@ export default function LobbyPage() {
                           {p.username}
                         </span>
                         <button className="btn" onClick={() => createGame(p.id)}>
-                          <UserPlus size={15} /> Uitnodigen
+                          <UserPlus size={15} /> {t("lobby.modal.invite.invite")}
                         </button>
                       </li>
                     ))}
@@ -495,9 +521,9 @@ export default function LobbyPage() {
             className="btn"
             onClick={switchToJorADMIN}
             disabled={switchingAccount || !getDevSession("JorADMIN")}
-            title={!getDevSession("JorADMIN") ? "Log eerst één keer in als JorADMIN om te kunnen wisselen" : undefined}
+            title={!getDevSession("JorADMIN") ? t("lobby.devSwitch.tooltip", { target: "JorADMIN" }) : undefined}
           >
-            <ArrowLeftRight size={15} /> {switchingAccount ? "Bezig..." : "Wissel naar JorADMIN"}
+            <ArrowLeftRight size={15} /> {switchingAccount ? t("common.busy") : t("lobby.devSwitch.switchTo", { target: "JorADMIN" })}
           </button>
         </div>
       )}
@@ -508,17 +534,17 @@ export default function LobbyPage() {
       {invites.length > 0 && (
         <section className="panel">
           <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            Uitnodigingen voor jou
+            {t("lobby.section.invites")}
           </h2>
           <ul className="flex flex-col gap-2">
             {invites.map((g) => (
               <li key={g.id} className="flex items-center justify-between text-sm">
                 <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <Avatar username={g.profiles?.username} />
-                  {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> nodigt je uit
+                  {t("lobby.invite.from", { name: g.profiles?.username || t("common.unknown") })} <Rating value={g.profiles?.rating} />
                 </span>
                 <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
-                  <Check size={15} /> {joiningId === g.id ? "Bezig..." : "Accepteren"}
+                  <Check size={15} /> {joiningId === g.id ? t("common.busy") : t("common.accept")}
                 </button>
               </li>
             ))}
@@ -564,13 +590,13 @@ export default function LobbyPage() {
               const opponentName = g.vs_computer
                 ? "Computer"
                 : g.local_multiplayer
-                  ? (g.state?.localNames?.B || "Speler 2")
+                  ? (g.state?.localNames?.B || t("lobby.modal.local.player2Placeholder"))
                   : (g.player_a === user.id ? g.b?.username : g.a?.username);
               const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
               const myRole = g.player_a === user.id ? "A" : "B";
               const won = g.state?.winner === myRole;
               const winnerName = g.local_multiplayer
-                ? (g.state?.localNames?.[g.state?.winner] || `Speler ${g.state?.winner}`)
+                ? (g.state?.localNames?.[g.state?.winner] || `${t("lobby.modal.local.player1Placeholder")}/${t("lobby.modal.local.player2Placeholder")}`)
                 : null;
               const busy = finishedActionId === g.id;
               return (
@@ -581,19 +607,19 @@ export default function LobbyPage() {
                 >
                   <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
                     <Avatar username={opponentName} />
-                    Partij met {opponentName || "onbekend"} <Rating value={opponentRating} />
+                    {t("lobby.game.withOpponent", { name: opponentName || t("common.unknown") })} <Rating value={opponentRating} />
                     <Badge tone={g.local_multiplayer || won ? "active" : "closed"}>
-                      {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? `${winnerName} won` : (won ? "gewonnen" : "verloren")}
+                      {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? t("lobby.badge.wonBy", { name: winnerName }) : (won ? t("lobby.badge.won") : t("lobby.badge.lost"))}
                     </Badge>
                   </span>
                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button className="btn btn-icon" title="Bekijk partij" onClick={() => router.push(`/game/${g.id}`)}>
+                    <button className="btn btn-icon" title={t("lobby.actions.viewGame")} onClick={() => router.push(`/game/${g.id}`)}>
                       <Eye size={14} />
                     </button>
-                    <button className="btn btn-icon" title="Archiveer" onClick={() => archiveFinished(g.id)} disabled={busy}>
+                    <button className="btn btn-icon" title={t("lobby.actions.archive")} onClick={() => archiveFinished(g.id)} disabled={busy}>
                       <Archive size={14} />
                     </button>
-                    <button className="btn btn-icon" title="Negeren" onClick={() => dismissFinished(g.id)} disabled={busy}>
+                    <button className="btn btn-icon" title={t("lobby.actions.ignore")} onClick={() => dismissFinished(g.id)} disabled={busy}>
                       <X size={14} />
                     </button>
                   </div>
@@ -664,19 +690,19 @@ export default function LobbyPage() {
         <div className="carousel">
           <div className="stat-card">
             <span className="stat-card-value">{myRating ?? "—"}</span>
-            <span className="stat-card-label">Rating</span>
+            <span className="stat-card-label">{t("lobby.stats.rating")}</span>
           </div>
           <div className="stat-card">
             <span className="stat-card-value">{myGames.length}</span>
-            <span className="stat-card-label">Actief</span>
+            <span className="stat-card-label">{t("lobby.stats.active")}</span>
           </div>
           <div className="stat-card">
             <span className="stat-card-value" style={{ color: "#9db98a" }}>{stats.wins}</span>
-            <span className="stat-card-label">Gewonnen</span>
+            <span className="stat-card-label">{t("lobby.stats.won")}</span>
           </div>
           <div className="stat-card">
             <span className="stat-card-value" style={{ color: "#e07a5f" }}>{stats.losses}</span>
-            <span className="stat-card-label">Verloren</span>
+            <span className="stat-card-label">{t("lobby.stats.lost")}</span>
           </div>
         </div>
       </section>
@@ -692,24 +718,24 @@ export default function LobbyPage() {
               const opponentName = g.vs_computer
                 ? "Computer"
                 : g.local_multiplayer
-                  ? (g.state?.localNames?.B || "Speler 2")
+                  ? (g.state?.localNames?.B || t("lobby.modal.local.player2Placeholder"))
                   : (g.player_a === user.id ? g.b?.username : g.a?.username);
               const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
               const myRole = g.player_a === user.id ? "A" : "B";
               const won = g.state?.winner === myRole;
               const winnerName = g.local_multiplayer
-                ? (g.state?.localNames?.[g.state?.winner] || `Speler ${g.state?.winner}`)
+                ? (g.state?.localNames?.[g.state?.winner] || `${t("lobby.modal.local.player1Placeholder")}/${t("lobby.modal.local.player2Placeholder")}`)
                 : null;
               return (
                 <li key={e.id} className="flex items-center justify-between text-sm">
                   <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                     <Avatar username={opponentName} />
-                    Partij met {opponentName || "onbekend"} <Rating value={opponentRating} />
+                    {t("lobby.game.withOpponent", { name: opponentName || t("common.unknown") })} <Rating value={opponentRating} />
                     <Badge tone={g.local_multiplayer || won ? "active" : "closed"}>
-                      {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? `${winnerName} won` : (won ? "gewonnen" : "verloren")}
+                      {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? t("lobby.badge.wonBy", { name: winnerName }) : (won ? t("lobby.badge.won") : t("lobby.badge.lost"))}
                     </Badge>
                   </span>
-                  <a className="btn" href={`/game/${g.id}`}><FolderOpen size={14} /> Bekijk</a>
+                  <a className="btn" href={`/game/${g.id}`}><FolderOpen size={14} /> {t("common.view")}</a>
                 </li>
               );
             })}
@@ -727,10 +753,10 @@ export default function LobbyPage() {
               <li key={g.id} className="flex items-center justify-between text-sm">
                 <span className="mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                   <Avatar username={g.profiles?.username} />
-                  {g.profiles?.username || "onbekend"} <Rating value={g.profiles?.rating} /> wacht op een tegenstander
+                  {t("lobby.openGame.waiting", { name: g.profiles?.username || t("common.unknown") })} <Rating value={g.profiles?.rating} />
                 </span>
                 <button className="btn btn-success" onClick={() => joinGame(g.id)} disabled={joiningId === g.id}>
-                  <Play size={15} /> {joiningId === g.id ? "Bezig..." : "Meespelen"}
+                  <Play size={15} /> {joiningId === g.id ? t("common.busy") : t("lobby.actions.join")}
                 </button>
               </li>
             ))}
@@ -744,17 +770,19 @@ export default function LobbyPage() {
             className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2"
             style={{ color: "var(--accent)" }}
           >
-            <Bug size={15} /> Opgeloste bugs
+            <Bug size={15} /> {t("lobby.bugfixes.title")}
             <ChevronRight size={15} className="details-chevron" />
           </summary>
           <ul className="flex flex-col gap-3 mt-3">
-            {BUGFIXES.map((fix, i) => (
-              <li key={i} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
+            {bugfixes.map((fix) => (
+              <li key={fix.id} className="text-sm border-t pt-2" style={{ borderColor: "var(--panel-line)" }}>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <strong>{fix.title}</strong>
-                  {fix.date && <span className="text-xs mono" style={{ color: "var(--muted)" }}>{fix.date}</span>}
+                  <strong>{fix.title?.[locale] || fix.title?.nl}</strong>
+                  <span className="text-xs mono" style={{ color: "var(--muted)" }}>
+                    {new Date(fix.created_at).toISOString().slice(0, 10)}
+                  </span>
                 </div>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>{fix.detail}</p>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>{fix.detail?.[locale] || fix.detail?.nl}</p>
               </li>
             ))}
           </ul>

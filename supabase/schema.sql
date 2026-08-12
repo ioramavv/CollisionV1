@@ -41,6 +41,12 @@ create table if not exists profiles (
   -- zie onderaan dit bestand). Null = geen foto, dan valt de UI terug op de
   -- gekleurde initiaal-cirkel (Avatar-component in lib/ui.js).
   avatar_url text,
+  -- Taalvoorkeur ("en"/"nl"/"de"/"fr"/"es"/"it"). Null = nog geen keuze
+  -- gemaakt, dan valt de UI terug op Engels (zie lib/i18n/index.js) — zo
+  -- blijft de taalkeuze aan het account gekoppeld en komt 'm bij elke
+  -- volgende login vanzelf terug, in plaats van telkens opnieuw ingesteld
+  -- te moeten worden.
+  locale text,
   created_at timestamptz default now()
 );
 
@@ -48,6 +54,7 @@ alter table profiles enable row level security;
 alter table profiles add column if not exists rating integer not null default 1200;
 alter table profiles add column if not exists rating_games integer not null default 0;
 alter table profiles add column if not exists avatar_url text;
+alter table profiles add column if not exists locale text;
 
 select _drop_all_policies('profiles', 'SELECT');
 create policy "Profielen zijn zichtbaar voor iedereen"
@@ -528,6 +535,42 @@ create policy "Alleen admin mag site-teksten wijzigen"
 select _drop_all_policies('site_content', 'DELETE');
 create policy "Alleen admin mag site-teksten verwijderen"
   on site_content for delete
+  using (is_admin());
+
+-- 12) Opgeloste bugs (bugfixes). Vervangt het vroegere hardcoded
+--     lib/bugfixes.js — nu met vertalingen per taal (title/detail als jsonb,
+--     bv. {"en": "...", "nl": "...", ...}) en een goedkeuringsstap: een
+--     nieuwe entry is pas zichtbaar voor gebruikers zodra de admin 'm
+--     bevestigt (confirmed = true) via de adminpagina. Rendering leest
+--     title[locale] met terugval op title.nl (het origineel).
+create table if not exists bugfixes (
+  id uuid primary key default gen_random_uuid(),
+  title jsonb not null default '{}'::jsonb,
+  detail jsonb not null default '{}'::jsonb,
+  confirmed boolean not null default false,
+  created_at timestamptz default now()
+);
+
+alter table bugfixes enable row level security;
+
+select _drop_all_policies('bugfixes', 'SELECT');
+create policy "Iedereen ziet bevestigde bugfixes, admin ziet alles"
+  on bugfixes for select
+  using (confirmed = true or is_admin());
+
+select _drop_all_policies('bugfixes', 'INSERT');
+create policy "Alleen admin mag bugfixes aanmaken"
+  on bugfixes for insert
+  with check (is_admin());
+
+select _drop_all_policies('bugfixes', 'UPDATE');
+create policy "Alleen admin mag bugfixes wijzigen"
+  on bugfixes for update
+  using (is_admin());
+
+select _drop_all_policies('bugfixes', 'DELETE');
+create policy "Alleen admin mag bugfixes verwijderen"
+  on bugfixes for delete
   using (is_admin());
 
 select _ensure_realtime('site_content');
