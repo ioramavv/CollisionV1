@@ -47,6 +47,11 @@ create table if not exists profiles (
   -- volgende login vanzelf terug, in plaats van telkens opnieuw ingesteld
   -- te moeten worden.
   locale text,
+  -- Themavoorkeur ("dark"/"cream"/"light"). Null = nog geen keuze gemaakt,
+  -- dan valt de UI terug op dark (zie lib/theme.js) — zelfde opzet als
+  -- locale hierboven, aan het account gekoppeld zodat 'm bij elke volgende
+  -- login vanzelf terugkomt.
+  theme text,
   created_at timestamptz default now()
 );
 
@@ -55,6 +60,7 @@ alter table profiles add column if not exists rating integer not null default 12
 alter table profiles add column if not exists rating_games integer not null default 0;
 alter table profiles add column if not exists avatar_url text;
 alter table profiles add column if not exists locale text;
+alter table profiles add column if not exists theme text;
 
 select _drop_all_policies('profiles', 'SELECT');
 create policy "Profielen zijn zichtbaar voor iedereen"

@@ -1,17 +1,63 @@
 @import "tailwindcss";
 
+/* --board-dark/--board-light/--walnut/--maple zijn de eigen visuele
+   identiteit van het bordspel (stukken/bordvakjes) — die staan hieronder los
+   in :root en worden NOOIT per thema overschreven, in geen van de blokken
+   verderop. --accent/--accent-dim blijven om dezelfde reden (merkherkenning)
+   ook in elk thema gelijk; alleen de overige variabelen (achtergrond, paneel,
+   tekst, gedimd) veranderen mee met het gekozen thema. */
 :root {
-  --bg: #17140f;
-  --panel: #221e1a;
-  --panel-line: #3d362c;
   --board-dark: #d8bf8c;
   --board-light: #ecdcb4;
   --accent: #c1443a;
   --accent-dim: rgba(193, 68, 58, 0.2);
   --walnut: #4a3222;
   --maple: #f1e3c2;
+}
+
+/* Donker (standaard) — de oorspronkelijke, altijd-al-bestaande kleuren van de
+   site. :root bevat deze waarden ook los (niet alleen via [data-theme="dark"])
+   zodat er geen flits van onopgemaakte kleuren is vóórdat lib/theme.js de
+   daadwerkelijke themakeuze heeft opgehaald en data-theme heeft gezet. */
+:root,
+[data-theme="dark"] {
+  --bg: #17140f;
+  --panel: #221e1a;
+  --panel-line: #3d362c;
   --text: #f0ece2;
   --muted: #a89b87;
+  /* Eindkleur van de winnaarsoverlay-gradient (.win-panel hieronder). */
+  --panel-shade: #1b1712;
+  /* "Sticky note"-kaartje op de uitlegpagina — hergebruikt bewust de vaste
+     bordkleuren (omgedraaid per thema) i.p.v. eigen losse hex-waarden. */
+  --callout-bg: var(--maple);
+  --callout-text: var(--walnut);
+}
+
+/* Crème — warm, perkamentachtig licht thema, in dezelfde warme familie als
+   --maple/--board-light, maar als eigen variabelen (die twee blijven zelf
+   ongewijzigd). */
+[data-theme="cream"] {
+  --bg: #ede0c4;
+  --panel: #fbf3e1;
+  --panel-line: #d9c49a;
+  --text: #2e2416;
+  --muted: #8a7657;
+  --panel-shade: #ddc79c;
+  --callout-bg: var(--walnut);
+  --callout-text: var(--maple);
+}
+
+/* Licht — neutraal, koeler licht thema. */
+[data-theme="light"] {
+  --bg: #ececea;
+  --panel: #ffffff;
+  --panel-line: #dcdcd7;
+  --text: #1f1f1d;
+  --muted: #75756f;
+  --panel-shade: #d9d9d3;
+  --callout-bg: var(--walnut);
+  --callout-text: var(--maple);
 }
 
 * {
@@ -800,7 +846,7 @@ details[open] .details-chevron {
 /* Winnaarsoverlay als een houten "prijsbord": een dik walnut kader met een
    dun maple lijstje eromheen, i.p.v. een gewoon paneel. */
 .win-panel {
-  background: linear-gradient(180deg, var(--panel) 0%, #1b1712 100%);
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-shade) 100%);
   border: 4px solid var(--walnut);
   box-shadow: 0 0 0 1px var(--maple), 0 18px 48px rgba(0, 0, 0, 0.6);
 }
