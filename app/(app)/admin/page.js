@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight, ChevronDown, ArrowLeftRight,
-  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy,
+  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy, FileEdit,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
@@ -279,18 +280,23 @@ export default function AdminPage() {
     <main className="min-h-screen px-4 py-10 max-w-3xl mx-auto flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-extrabold uppercase tracking-widest">Admin</h1>
-        {/* Dev-gemak: snel wisselen naar het "Joram"-testaccount. Altijd
-            zichtbaar (uitgeschakeld met uitleg zolang er nog geen bewaarde
-            sessie voor Joram is — dan moet daar eerst één keer mee
-            ingelogd worden). */}
-        <button
-          className="btn"
-          onClick={switchToJoram}
-          disabled={switchingAccount || !getDevSession("Joram")}
-          title={!getDevSession("Joram") ? "Log eerst één keer in als Joram om te kunnen wisselen" : undefined}
-        >
-          <ArrowLeftRight size={15} /> {switchingAccount ? "Bezig..." : "Wissel naar Joram"}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link className="btn" href="/admin/content">
+            <FileEdit size={15} /> Site-inhoud
+          </Link>
+          {/* Dev-gemak: snel wisselen naar het "Joram"-testaccount. Altijd
+              zichtbaar (uitgeschakeld met uitleg zolang er nog geen bewaarde
+              sessie voor Joram is — dan moet daar eerst één keer mee
+              ingelogd worden). */}
+          <button
+            className="btn"
+            onClick={switchToJoram}
+            disabled={switchingAccount || !getDevSession("Joram")}
+            title={!getDevSession("Joram") ? "Log eerst één keer in als Joram om te kunnen wisselen" : undefined}
+          >
+            <ArrowLeftRight size={15} /> {switchingAccount ? "Bezig..." : "Wissel naar Joram"}
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
