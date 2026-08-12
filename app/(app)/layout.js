@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, Megaphone, Globe } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, Megaphone, Globe, SunMoon } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 import { rememberDevSession, isDevAccount } from "@/lib/devAccountSwitch";
 import { useTranslation, useLocale } from "@/lib/i18n";
 import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/lib/i18n/locales";
+import { useTheme, SUPPORTED_THEMES } from "@/lib/theme";
 
 // labelKey i.p.v. een vaste tekst — vertaald ten tijde van renderen (zie
 // t(link.labelKey) hieronder), zodat dezelfde lijst voor zowel de
@@ -23,6 +24,7 @@ export default function AppLayout({ children }) {
   const router = useRouter();
   const t = useTranslation();
   const [locale, setLocale] = useLocale();
+  const [theme, setTheme] = useTheme();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -32,6 +34,7 @@ export default function AppLayout({ children }) {
   const [feedbackError, setFeedbackError] = useState(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [announcements, setAnnouncements] = useState([]);
   // Sluit het account-menu automatisch zodra er (client-side) genavigeerd
@@ -41,6 +44,7 @@ export default function AppLayout({ children }) {
     setPrevPathname(pathname);
     setAccountMenuOpen(false);
     setLangMenuOpen(false);
+    setThemeMenuOpen(false);
   }
 
   useEffect(() => {
@@ -226,6 +230,17 @@ export default function AppLayout({ children }) {
               </button>
             </li>
             <li>
+              {/* Themakeuze — zelfde plek/opzet als de taalkeuze hierboven. */}
+              <button
+                className="sidebar-link"
+                style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}
+                onClick={() => setThemeMenuOpen(true)}
+              >
+                <SunMoon size={17} strokeWidth={2} />
+                {t("layout.nav.theme")}
+              </button>
+            </li>
+            <li>
               <Link href="/profile" className={`sidebar-link${pathname.startsWith("/profile") ? " active" : ""}`}>
                 <UserCircle size={17} strokeWidth={2} />
                 {t("layout.nav.profile")}
@@ -300,6 +315,15 @@ export default function AppLayout({ children }) {
             >
               <Globe size={19} strokeWidth={2} />
             </button>
+            <button
+              type="button"
+              className="mobile-topbar-tab"
+              style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+              aria-label={t("layout.theme.choose")}
+              onClick={() => setThemeMenuOpen(true)}
+            >
+              <SunMoon size={19} strokeWidth={2} />
+            </button>
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -358,6 +382,14 @@ export default function AppLayout({ children }) {
               <Globe size={19} strokeWidth={2} />
               {t("layout.nav.language")}
             </button>
+            <button
+              type="button"
+              className="bottom-nav-tab"
+              onClick={() => setThemeMenuOpen(true)}
+            >
+              <SunMoon size={19} strokeWidth={2} />
+              {t("layout.nav.theme")}
+            </button>
           </div>
         </nav>
       )}
@@ -393,6 +425,41 @@ export default function AppLayout({ children }) {
                 onClick={() => { setLocale(code); setLangMenuOpen(false); }}
               >
                 {LOCALE_LABELS[code]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Zelfde gecentreerde modal-stijl als het taalmenu hierboven. */}
+      {themeMenuOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: "1rem",
+          }}
+          onClick={() => setThemeMenuOpen(false)}
+        >
+          <div
+            className="panel"
+            style={{ width: "100%", maxWidth: 280, display: "flex", flexDirection: "column", gap: 4 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
+              <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>{t("layout.theme.choose")}</h2>
+              <button className="btn btn-icon" onClick={() => setThemeMenuOpen(false)}><X size={16} /></button>
+            </div>
+            {SUPPORTED_THEMES.map((code) => (
+              <button
+                key={code}
+                className="sidebar-link"
+                style={{
+                  width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer",
+                  color: code === theme ? "var(--accent)" : undefined, fontWeight: code === theme ? 600 : undefined,
+                }}
+                onClick={() => { setTheme(code); setThemeMenuOpen(false); }}
+              >
+                {t(`theme.${code}`)}
               </button>
             ))}
           </div>

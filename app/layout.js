@@ -2,6 +2,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import PageTransition from "./PageTransition";
 import { LanguageProvider } from "@/lib/i18n";
+import { ThemeProvider } from "@/lib/theme";
 
 // Alleen gebruikt voor het logo-woordmerk (zie lib/ui.js), niet voor de
 // rest van de tekst — vandaar een losse CSS-variabele i.p.v. de globale
@@ -31,9 +32,11 @@ export default function RootLayout({ children }) {
     // is (account-instelling of localStorage, zie lib/i18n/index.js).
     <html lang="en" className={poppins.variable}>
       <body>
-        <LanguageProvider>
-          <PageTransition>{children}</PageTransition>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <PageTransition>{children}</PageTransition>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

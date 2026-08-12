@@ -270,8 +270,8 @@ export default function TutorialPage() {
             <div
               style={{
                 width: "min(88vw, 484px)",
-                background: "#fff",
-                color: "#111",
+                background: "var(--callout-bg)",
+                color: "var(--callout-text)",
                 borderRadius: 8,
                 padding: "12px 16px",
                 display: "flex",
@@ -280,10 +280,10 @@ export default function TutorialPage() {
                 boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
               }}
             >
-              <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, flexShrink: 0, color: "#111" }}>
+              <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, flexShrink: 0, color: "var(--callout-text)" }}>
                 {t("tutorial.tip")}
               </span>
-              <p style={{ fontSize: 14, flex: 1, margin: 0, color: "#111" }}>{t(currentStep.key)}</p>
+              <p style={{ fontSize: 14, flex: 1, margin: 0, color: "var(--callout-text)" }}>{t(currentStep.key)}</p>
               {stepIndex < STEPS.length - 1 && (
                 <button className="btn btn-icon" onClick={() => setStepIndex((i) => i + 1)} title={t("tutorial.nextTip")} style={{ flexShrink: 0 }}>
                   <ArrowRight size={15} />
