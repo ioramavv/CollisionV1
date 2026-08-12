@@ -8,9 +8,11 @@ import { useParams } from "next/navigation";
 import { UserPlus, Check } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Rating, Logo, BoardLoader } from "@/lib/ui";
+import { useTranslation } from "@/lib/i18n";
 
 export default function InvitePage() {
   const { username } = useParams();
+  const t = useTranslation();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [inviter, setInviter] = useState(null);
@@ -97,7 +99,7 @@ export default function InvitePage() {
         .from("friendships")
         .insert({ requester_id: user.id, addressee_id: inviter.id, status: "accepted" });
       if (error) {
-        setError("Vrienden worden mislukt: " + error.message);
+        setError(t("invite.error.acceptFailed", { message: error.message }));
         setAccepting(false);
         return;
       }
@@ -114,8 +116,8 @@ export default function InvitePage() {
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="panel w-full max-w-sm flex flex-col items-center gap-3 text-center">
           <Logo size={26} />
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Deze uitnodigingslink is niet geldig.</p>
-          <a className="btn btn-solid" href="/lobby">Naar Collision</a>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("invite.notFound")}</p>
+          <a className="btn btn-solid" href="/lobby">{t("invite.goToApp")}</a>
         </div>
       </main>
     );
@@ -127,7 +129,7 @@ export default function InvitePage() {
         <Logo size={26} />
         <Avatar username={inviter.username} size={48} />
         <div>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Je bent uitgenodigd door</p>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("invite.invitedBy")}</p>
           <p className="text-lg font-bold flex items-center justify-center gap-2">
             {inviter.username} <Rating value={inviter.rating} />
           </p>
@@ -136,31 +138,31 @@ export default function InvitePage() {
         {!user ? (
           <>
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              Log in of registreer, en open deze link daarna nog een keer om vrienden te worden.
+              {t("invite.loginPrompt")}
             </p>
             <div className="flex items-center gap-2">
-              <a className="btn" href="/login">Inloggen</a>
-              <a className="btn btn-solid" href="/register">Registreren</a>
+              <a className="btn" href="/login">{t("login.title")}</a>
+              <a className="btn btn-solid" href="/register">{t("register.title")}</a>
             </div>
           </>
         ) : relationship === "self" ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Dit is je eigen uitnodigingslink.</p>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("invite.self")}</p>
         ) : relationship === "pending-sent" ? (
           <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Je hebt {inviter.username} al een vriendverzoek gestuurd — die moet het nog accepteren.
+            {t("invite.pendingSent", { name: inviter.username })}
           </p>
         ) : relationship === "friends" || accepted ? (
           <>
             <p className="text-sm flex items-center gap-2" style={{ color: "#9db98a" }}>
-              <Check size={16} /> Jullie zijn vrienden!
+              <Check size={16} /> {t("invite.alreadyFriends")}
             </p>
-            <a className="btn btn-solid" href="/friends">Naar je vrienden</a>
+            <a className="btn btn-solid" href="/friends">{t("invite.goToFriends")}</a>
           </>
         ) : (
           <>
             {error && <p className="text-xs" style={{ color: "#e07a5f" }}>{error}</p>}
             <button className="btn btn-solid" onClick={acceptInvite} disabled={accepting}>
-              <UserPlus size={15} /> {accepting ? "Bezig..." : "Word vrienden"}
+              <UserPlus size={15} /> {accepting ? t("common.busy") : t("invite.becomeFriends")}
             </button>
           </>
         )}
