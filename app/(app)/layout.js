@@ -183,9 +183,9 @@ export default function AppLayout({ children }) {
       {/* Desktop-navigatie — op mobiel vervangen door de kopbalk hieronder. */}
       <nav className="sidebar">
         <div className="sidebar-top">
-          <div className="sidebar-brand">
+          <Link href="/lobby" className="sidebar-brand" style={{ textDecoration: "none" }}>
             <Logo size={20} />
-          </div>
+          </Link>
           {/* Zelfde account-menu als op mobiel (Profiel/Feedback/Admin/
               Uitloggen), hier rechtsboven bereikbaar via de avatar — op
               elke pagina, ook Admin. De taalknop staat niet meer hier, maar
@@ -285,7 +285,9 @@ export default function AppLayout({ children }) {
           onderbalk (.bottom-nav) de plek voor navigatie — dat was al goed
           zo. */}
       <header className="mobile-topbar">
-        <Logo size={16} />
+        <Link href="/lobby" style={{ display: "flex", textDecoration: "none" }}>
+          <Logo size={16} />
+        </Link>
         {isGamePage && (
           <div className="mobile-topbar-nav">
             {LINKS.map((link) => (
