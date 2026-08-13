@@ -47,7 +47,7 @@ create table if not exists profiles (
   -- volgende login vanzelf terug, in plaats van telkens opnieuw ingesteld
   -- te moeten worden.
   locale text,
-  -- Themavoorkeur ("dark"/"cream"/"light"). Null = nog geen keuze gemaakt,
+  -- Themavoorkeur ("dark"/"woody"/"light"). Null = nog geen keuze gemaakt,
   -- dan valt de UI terug op dark (zie lib/theme.js) — zelfde opzet als
   -- locale hierboven, aan het account gekoppeld zodat 'm bij elke volgende
   -- login vanzelf terugkomt.
