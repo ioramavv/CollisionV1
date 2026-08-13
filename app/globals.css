@@ -37,22 +37,25 @@
   --bg-pattern: rgba(216, 191, 140, 0.04);
 }
 
-/* Crème — hout/koffiekleurig, "handmade" thema: geen wit-met-beige, maar een
-   duidelijk getinte, verzadigde koffie-met-melk-achtergrond met een donkerder
-   koffiebruine paneelrand en een duidelijk zichtbaar geblokt patroon (net als
-   bij donker), i.p.v. het bijna-wit dat licht al heeft. */
-[data-theme="cream"] {
-  --bg: #d9c39c;
-  --panel: #f0e2c4;
-  --panel-line: #b8935e;
-  --text: #2b2013;
-  --muted: #7a6142;
-  --panel-shade: #c9a873;
-  --callout-bg: var(--walnut);
-  --callout-text: var(--maple);
-  /* Donkerder koffiebruin, hoger dekkend dan bij donker — anders verdwijnt
-     het patroon tegen deze lichtere achtergrond. */
-  --bg-pattern: rgba(120, 90, 55, 0.09);
+/* Woody — zelfde donkerte-niveau als Donker (geen licht thema), maar in
+   houtkleuren i.p.v. het bijna-zwarte antraciet: een donkere walnoot-
+   achtergrond, iets lichter paneel, en een echte houtnerf-textuur op de
+   achtergrond (zie de body-override onderaan dit bestand) i.p.v. het
+   geblokte patroon dat de andere thema's gebruiken. */
+[data-theme="woody"] {
+  --bg: #2b1b10;
+  --panel: #3f2a19;
+  --panel-line: #5c4128;
+  --text: #f3e6cf;
+  --muted: #b9986c;
+  --panel-shade: #1f130b;
+  /* Zelfde combinatie als Donker (licht kaartje op een donkere achtergrond) —
+     Woody is immers ook een donker thema. */
+  --callout-bg: var(--maple);
+  --callout-text: var(--walnut);
+  /* Wordt hier niet gebruikt (zie de houtnerf-textuur bij body hieronder),
+     maar blijft gezet zodat de variabele overal gedefinieerd is. */
+  --bg-pattern: rgba(0, 0, 0, 0);
 }
 
 /* Licht — neutraal, koeler licht thema. */
@@ -88,6 +91,17 @@ body {
   background-image: repeating-conic-gradient(var(--bg-pattern) 0% 25%, transparent 0% 50%);
   background-size: 36px 36px;
   background-attachment: fixed;
+}
+
+/* Woody krijgt een echte houtnerf-textuur i.p.v. het geblokte patroon
+   hierboven — een SVG met fractal-noise (feTurbulence), uitgerekt in één
+   richting zodat het als vloeiende nerf oogt, en ingekleurd naar warm bruin
+   (feColorMatrix) op lage dekking zodat de paneeltjes er goed leesbaar
+   bovenop blijven. Volledig inline als data-URI, geen los afbeeldingbestand
+   nodig. */
+[data-theme="woody"] body {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.14' numOctaves='3' seed='11' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0 0 0 0 0.6 0 0 0 0 0.4 0 0 0 0 0.2 0 0 0 0.28 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+  background-size: 260px 260px;
 }
 
 /* Voor elementen die zelf klikbaar zijn (onClick) maar geen echte <a>/
