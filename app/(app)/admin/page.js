@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight, ChevronDown, ArrowLeftRight,
-  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy, FileEdit, Bug,
+  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy, FileEdit, Bug, ListTodo,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
@@ -20,7 +20,7 @@ const RULES = [
   { rule: "Beurt met meerdere stuiters", detail: "Eén zelfgekozen stuk (pion of eigen hulpstuk) mag binnen dezelfde beurt herhaaldelijk stuiteren, ook van richting wisselend, tot de speler stopt of vastloopt.", mechanic: "applyMove(), anyDirectionAvailable()" },
   { rule: "Insluitregel", detail: "Je beurt mag nooit eindigen op een positie die een pion (van jezelf of de tegenstander) volledig afsnijdt van het centrum — er doorheen bewegen (zonder daar te stoppen) mag wel.", mechanic: "bothPawnsCanReachCenter(), pawnCanReachCenter()" },
   { rule: "Terugkijken", detail: "Elke eerdere bordstaat wordt puur uit de zet-geschiedenis gereconstrueerd, niet apart opgeslagen.", mechanic: "reconstructBoard(), state.history" },
-  { rule: "Computerspeler", detail: "4 niveaus: Makkelijk (willekeurig), Gemiddeld (1-ply heuristiek), Moeilijk/Expert (minimax + alfa-bèta, 2 resp. 3 zetten vooruit).", mechanic: "lib/collisionAI.js" },
+  { rule: "Computerspeler", detail: "4 niveaus: Makkelijk (willekeurig uit een opgeschoonde kandidatenlijst), Gemiddeld/Moeilijk/Expert (minimax + alfa-bèta, iterative deepening binnen een tijdsbudget van 200/500/1000ms) — plaatst hulpstukken alleen met aantoonbaar effect en vermijdt zinloze pion-terugzetten.", mechanic: "lib/collisionAI.js" },
   { rule: "Rating", detail: "Elo-systeem (start 1200) na elke afgeronde partij tussen twee échte spelers; K-factor 40/20/10 op basis van ervaring/rating.", mechanic: "apply_game_rating() (SQL)" },
 ];
 
@@ -333,6 +333,9 @@ export default function AdminPage() {
         <div className="flex items-center gap-2">
           <Link className="btn" href="/admin/content">
             <FileEdit size={15} /> Site-inhoud
+          </Link>
+          <Link className="btn" href="/admin/todos">
+            <ListTodo size={15} /> To-do&apos;s
           </Link>
           {/* Dev-gemak: snel wisselen naar het "Joram"-testaccount. Altijd
               zichtbaar (uitgeschakeld met uitleg zolang er nog geen bewaarde

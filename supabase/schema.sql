@@ -581,3 +581,38 @@ create policy "Alleen admin mag bugfixes verwijderen"
 
 select _ensure_realtime('site_content');
 select _ensure_realtime('bugfixes');
+
+-- 13) Admin to-do's. Puur een privé planninglijstje voor de admin (JorADMIN)
+--     zelf — een plek om verzoeken/ideeën te verzamelen die later samen
+--     afgewerkt worden, i.p.v. verspreid over losse chatberichten.
+create table if not exists admin_todos (
+  id uuid primary key default gen_random_uuid(),
+  text text not null,
+  done boolean not null default false,
+  created_at timestamptz default now(),
+  done_at timestamptz
+);
+
+alter table admin_todos enable row level security;
+
+select _drop_all_policies('admin_todos', 'SELECT');
+create policy "Alleen admin mag to-do's lezen"
+  on admin_todos for select
+  using (is_admin());
+
+select _drop_all_policies('admin_todos', 'INSERT');
+create policy "Alleen admin mag to-do's aanmaken"
+  on admin_todos for insert
+  with check (is_admin());
+
+select _drop_all_policies('admin_todos', 'UPDATE');
+create policy "Alleen admin mag to-do's wijzigen"
+  on admin_todos for update
+  using (is_admin());
+
+select _drop_all_policies('admin_todos', 'DELETE');
+create policy "Alleen admin mag to-do's verwijderen"
+  on admin_todos for delete
+  using (is_admin());
+
+select _ensure_realtime('admin_todos');
