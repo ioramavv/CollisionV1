@@ -336,9 +336,20 @@ export default function TutorialPage() {
         </div>
 
         <aside className="panel w-64 flex flex-col gap-3">
-          <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
-            <div>{t("game.toolsRemaining", { name: t("tutorial.labelYou"), count: state.toolsRemaining.A })}</div>
-            <div>{t("game.toolsRemaining", { name: "Computer", count: state.toolsRemaining.B })}</div>
+          <div className="text-xs flex items-center justify-between flex-wrap gap-1" style={{ color: "var(--muted)" }}>
+            <span className="flex items-center gap-1">
+              {t("tutorial.labelYou")}
+              <span className="flex items-center gap-1 mono" title={t("game.tool")}>
+                <ToolIcon size={11} /> {state.toolsRemaining.A}
+              </span>
+            </span>
+            <span>{t("game.vs")}</span>
+            <span className="flex items-center gap-1">
+              Computer
+              <span className="flex items-center gap-1 mono" title={t("game.tool")}>
+                <ToolIcon size={11} /> {state.toolsRemaining.B}
+              </span>
+            </span>
           </div>
 
           {state.winner ? (
