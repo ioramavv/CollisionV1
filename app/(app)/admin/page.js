@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Eye, MessageSquare, Swords, Trash2, BookOpen, ChevronRight, ChevronDown, ArrowLeftRight,
-  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy, FileEdit, Bug, ListTodo,
+  Search, Pencil, Check, X, Megaphone, Send, Clock, Trophy, FileEdit, Bug, ListTodo, Wrench,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
@@ -49,6 +49,7 @@ export default function AdminPage() {
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [switchingAccount, setSwitchingAccount] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
 
   const [userSearch, setUserSearch] = useState("");
   const [sortMode, setSortMode] = useState("recent"); // recent | rating
@@ -330,59 +331,87 @@ export default function AdminPage() {
     <main className="min-h-screen px-4 py-10 max-w-3xl mx-auto flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-extrabold uppercase tracking-widest">Admin</h1>
-        <div className="flex items-center gap-2">
-          <Link className="btn" href="/admin/content">
-            <FileEdit size={15} /> Site-inhoud
-          </Link>
-          <Link className="btn" href="/admin/todos">
-            <ListTodo size={15} /> To-do&apos;s
-          </Link>
-          {/* Dev-gemak: snel wisselen naar het "Joram"-testaccount. Altijd
-              zichtbaar (uitgeschakeld met uitleg zolang er nog geen bewaarde
-              sessie voor Joram is — dan moet daar eerst één keer mee
-              ingelogd worden). */}
-          <button
-            className="btn"
-            onClick={switchToJoram}
-            disabled={switchingAccount || !getDevSession("Joram")}
-            title={!getDevSession("Joram") ? "Log eerst één keer in als Joram om te kunnen wisselen" : undefined}
-          >
-            <ArrowLeftRight size={15} /> {switchingAccount ? "Bezig..." : "Wissel naar Joram"}
-          </button>
-        </div>
+        <button className="btn" onClick={() => setToolsMenuOpen(true)}>
+          <Wrench size={15} /> Tools
+        </button>
       </div>
+
+      {toolsMenuOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+            display: "flex", alignItems: "flex-start", justifyContent: "flex-end", zIndex: 55, padding: "1rem",
+          }}
+          onClick={() => setToolsMenuOpen(false)}
+        >
+          <div
+            className="panel"
+            style={{ width: "100%", maxWidth: 280, display: "flex", flexDirection: "column", gap: 4 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
+              <span className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>Tools</span>
+              <button className="btn btn-icon" onClick={() => setToolsMenuOpen(false)}><X size={16} /></button>
+            </div>
+            <Link className="sidebar-link" href="/admin/content" onClick={() => setToolsMenuOpen(false)}>
+              <FileEdit size={17} strokeWidth={2} /> Site-inhoud
+            </Link>
+            <Link className="sidebar-link" href="/admin/todos" onClick={() => setToolsMenuOpen(false)}>
+              <ListTodo size={17} strokeWidth={2} /> To-do&apos;s
+            </Link>
+            {/* Dev-gemak: snel wisselen naar het "Joram"-testaccount. Altijd
+                zichtbaar (uitgeschakeld met uitleg zolang er nog geen bewaarde
+                sessie voor Joram is — dan moet daar eerst één keer mee
+                ingelogd worden). */}
+            <button
+              className="sidebar-link"
+              style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}
+              onClick={() => { setToolsMenuOpen(false); switchToJoram(); }}
+              disabled={switchingAccount || !getDevSession("Joram")}
+              title={!getDevSession("Joram") ? "Log eerst één keer in als Joram om te kunnen wisselen" : undefined}
+            >
+              <ArrowLeftRight size={17} strokeWidth={2} /> {switchingAccount ? "Bezig..." : "Wissel naar Joram"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Overzicht
-        </h2>
-        <div className="carousel">
-          <div className="stat-card">
-            <span className="stat-card-value">{gameCounts.total}</span>
-            <span className="stat-card-label">Partijen totaal</span>
+        <details open>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            Overzicht
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
+          <div className="carousel mt-3">
+            <div className="stat-card">
+              <span className="stat-card-value">{gameCounts.total}</span>
+              <span className="stat-card-label">Partijen totaal</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card-value">{gameCounts.today}</span>
+              <span className="stat-card-label">Vandaag gestart</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card-value">{avgRating ?? "—"}</span>
+              <span className="stat-card-label">Gem. rating</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card-value" style={{ color: "#9db98a" }}>{onlineIds.size}</span>
+              <span className="stat-card-label">Nu online</span>
+            </div>
           </div>
-          <div className="stat-card">
-            <span className="stat-card-value">{gameCounts.today}</span>
-            <span className="stat-card-label">Vandaag gestart</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-card-value">{avgRating ?? "—"}</span>
-            <span className="stat-card-label">Gem. rating</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-card-value" style={{ color: "#9db98a" }}>{onlineIds.size}</span>
-            <span className="stat-card-label">Nu online</span>
-          </div>
-        </div>
+        </details>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Gebruikers — {filteredUsers.length} van {users.length}, {onlineIds.size} online
-        </h2>
-        <div className="flex items-center gap-2 mb-3">
+        <details>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            Gebruikers — {filteredUsers.length} van {users.length}, {onlineIds.size} online
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
+        <div className="flex items-center gap-2 mb-3 mt-3">
           <div style={{ position: "relative", flex: 1 }}>
             <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input
@@ -510,13 +539,16 @@ export default function AdminPage() {
             </li>
           ))}
         </ul>
+        </details>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <Megaphone size={15} /> Meldingen
-        </h2>
-        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+        <details>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            <Megaphone size={15} /> Meldingen
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
+        <p className="text-xs mb-3 mt-3" style={{ color: "var(--muted)" }}>
           Verschijnt als een balkje bovenaan bij alle gebruikers, tot ze &apos;m wegklikken.
         </p>
         <form onSubmit={postAnnouncement} className="flex items-center gap-2 mb-3">
@@ -556,13 +588,16 @@ export default function AdminPage() {
             ))}
           </ul>
         )}
+        </details>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <Bug size={15} /> Opgeloste bugs
-        </h2>
-        <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>
+        <details>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            <Bug size={15} /> Opgeloste bugs
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
+        <p className="text-xs mb-3 mt-3" style={{ color: "var(--muted)" }}>
           Nieuwe entries staan als concept tot je ze bevestigt — pas dan zijn ze zichtbaar in de lobby. Alleen
           Nederlands hier invullen; voor de andere talen (EN/DE/FR/ES/IT) val je anders terug op deze tekst, tenzij
           je &apos;m later apart laat vertalen.
@@ -617,16 +652,19 @@ export default function AdminPage() {
             ))}
           </ul>
         )}
+        </details>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <MessageSquare size={15} /> Feedback
-        </h2>
+        <details>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            <MessageSquare size={15} /> Feedback
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
         {feedback.length === 0 && (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Nog geen feedback ontvangen.</p>
+          <p className="text-sm mt-3" style={{ color: "var(--muted)" }}>Nog geen feedback ontvangen.</p>
         )}
-        <ul className="flex flex-col gap-3 max-h-96 overflow-y-auto">
+        <ul className="flex flex-col gap-3 mt-3 max-h-96 overflow-y-auto">
           {feedback.map((f) => (
             <li key={f.id} className="text-sm border-t pt-2 flex items-start justify-between gap-2" style={{ borderColor: "var(--panel-line)" }}>
               <div>
@@ -642,16 +680,19 @@ export default function AdminPage() {
             </li>
           ))}
         </ul>
+        </details>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <Swords size={15} /> Actieve partijen — {activeGames.length}
-        </h2>
+        <details>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            <Swords size={15} /> Actieve partijen — {activeGames.length}
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
         {activeGames.length === 0 && (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Geen actieve partijen.</p>
+          <p className="text-sm mt-3" style={{ color: "var(--muted)" }}>Geen actieve partijen.</p>
         )}
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 mt-3">
           {activeGames.map((g) => (
             <li key={g.id} className="flex items-center justify-between text-sm">
               <span className="mono flex items-center gap-1" style={{ color: "var(--muted)" }}>
@@ -668,16 +709,19 @@ export default function AdminPage() {
             </li>
           ))}
         </ul>
+        </details>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <Clock size={15} /> Wachtende partijen — {waitingGames.length}
-        </h2>
+        <details>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            <Clock size={15} /> Wachtende partijen — {waitingGames.length}
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
         {waitingGames.length === 0 && (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Geen wachtende partijen.</p>
+          <p className="text-sm mt-3" style={{ color: "var(--muted)" }}>Geen wachtende partijen.</p>
         )}
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 mt-3">
           {waitingGames.map((g) => (
             <li key={g.id} className="flex items-center justify-between text-sm">
               <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
@@ -692,16 +736,19 @@ export default function AdminPage() {
             </li>
           ))}
         </ul>
+        </details>
       </section>
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--accent)" }}>
-          <Trophy size={15} /> Recent afgeronde partijen — {finishedGames.length}
-        </h2>
+        <details>
+          <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+            <Trophy size={15} /> Recent afgeronde partijen — {finishedGames.length}
+            <ChevronRight size={15} className="details-chevron" />
+          </summary>
         {finishedGames.length === 0 && (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Nog geen afgeronde partijen.</p>
+          <p className="text-sm mt-3" style={{ color: "var(--muted)" }}>Nog geen afgeronde partijen.</p>
         )}
-        <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+        <ul className="flex flex-col gap-2 mt-3 max-h-96 overflow-y-auto">
           {finishedGames.map((g) => {
             const winnerName = g.local_multiplayer
               ? (g.state?.localNames?.[g.state?.winner] || `Speler ${g.state?.winner}`)
@@ -724,6 +771,7 @@ export default function AdminPage() {
             );
           })}
         </ul>
+        </details>
       </section>
 
       <section className="panel">
