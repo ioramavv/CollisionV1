@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -258,7 +258,14 @@ export default function GamePage() {
     });
   }
 
-  useEffect(() => {
+  // useLayoutEffect (niet useEffect) i.p.v.: dit moet vóór de browser
+  // schildert al vaststaan welk stuk er "schuift" — anders toont het eerste
+  // geschilderde frame al even kort de definitieve bordstaat (het stuk staat
+  // daarin al op de eindpositie), en pas ná die flits begint de animatie
+  // alsnog vanaf het startpunt. useLayoutEffect draait synchroon vóór de
+  // paint, dus de ghost (zie Board.js) staat er al bij het allereerste
+  // geschilderde frame, zonder die tussenflits.
+  useLayoutEffect(() => {
     if (!state?.board) return;
     const prevBoard = prevBoardRef.current;
     if (prevBoard && prevBoard !== state.board) {

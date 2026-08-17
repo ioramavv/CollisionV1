@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, RotateCcw,
@@ -87,7 +87,10 @@ export default function TutorialPage() {
 
   // Detecteert welk stuk verplaatst is (t.o.v. de vorige bordstaat) en laat
   // dat kort "schuiven" — dezelfde animatie als op de echte spelpagina.
-  useEffect(() => {
+  // useLayoutEffect i.p.v. useEffect: voorkomt een korte flits van de
+  // definitieve bordstaat vóórdat de animatie start (zie de toelichting bij
+  // dezelfde effect op de echte spelpagina).
+  useLayoutEffect(() => {
     const prevBoard = prevBoardRef.current;
     if (prevBoard && prevBoard !== state.board) {
       const reduceMotion = typeof window !== "undefined"
