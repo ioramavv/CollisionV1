@@ -58,17 +58,22 @@
   --bg-pattern: rgba(0, 0, 0, 0);
 }
 
-/* Licht — neutraal, koeler licht thema. */
+/* Licht — warm wit linnen i.p.v. het koele, kale grijs van eerst (voelde te
+   "computer" aan). Kleuren getrokken richting crème/linnen; het geblokte
+   patroon hieronder wordt voor dit thema vervangen door een echte
+   linnenweeftextuur (zie de body-override onderaan dit bestand). */
 [data-theme="light"] {
-  --bg: #ececea;
-  --panel: #ffffff;
-  --panel-line: #dcdcd7;
-  --text: #1f1f1d;
-  --muted: #75756f;
-  --panel-shade: #d9d9d3;
+  --bg: #f2ede0;
+  --panel: #fffdf7;
+  --panel-line: #ddd4c0;
+  --text: #2a251d;
+  --muted: #8c8270;
+  --panel-shade: #ded4bd;
   --callout-bg: var(--walnut);
   --callout-text: var(--maple);
-  --bg-pattern: rgba(0, 0, 0, 0.035);
+  /* Wordt hier niet gebruikt (zie de linnentextuur bij body hieronder), maar
+     blijft gezet zodat de variabele in elk thema gedefinieerd is. */
+  --bg-pattern: rgba(0, 0, 0, 0);
 }
 
 * {
@@ -106,6 +111,24 @@ body {
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
+}
+
+/* Licht krijgt een echte linnenweeftextuur i.p.v. het geblokte patroon
+   hierboven — twee gestapelde lagen: een fijne, naadloos herhalende
+   fractal-noise (feTurbulence met stitchTiles="stitch", een klein tegeltje
+   i.p.v. één grote afbeelding — hier géén nadelig zichtbare naad zoals bij
+   Woody, juist omdát linnen van nature een fijn, klein-schalig herhalend
+   patroon is) voor de "vezel"-korrel, plús een diagonale kruisarcering op
+   nóg kleinere schaal die het weefpatroon van over-onder-draden suggereert.
+   Beide zeer laag gedekt zodat het als textuur leest zonder van de content
+   af te leiden. */
+[data-theme="light"] body {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='l'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='4' stitchTiles='stitch' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0 0 0 0 0.45 0 0 0 0 0.38 0 0 0 0 0.24 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Cpath d='M0 0L7 7M7 0L0 7' stroke='rgba(120,105,80,0.07)' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 140px 140px, 7px 7px;
+  background-repeat: repeat, repeat;
+  background-attachment: fixed, fixed;
 }
 
 /* Voor elementen die zelf klikbaar zijn (onClick) maar geen echte <a>/
