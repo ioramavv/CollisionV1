@@ -348,6 +348,21 @@ body {
   padding: 24px;
 }
 
+/* Licht: de blokken zelf krijgen een echte foto van wit linnen als
+   achtergrond (i.p.v. de effen paneelkleur) — vandaar ook de "wit-linnen-
+   textiel-look" van dit thema. --panel blijft als achtergrondkleur staan
+   (zie hierboven) en dient als fallback zolang de afbeelding nog laadt.
+   background-size: cover i.p.v. een tegelend patroon: elk paneel toont zo
+   een naadloze uitsnede van de stof, zonder het risico op een zichtbare
+   herhalingsnaad bij tegelen (zie ook de houtnerf-textuur bij Woody, die om
+   dezelfde reden ook niet tegelt). */
+[data-theme="light"] .panel {
+  background-image: url("/textures/linen.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 /* Horizontaal scrollende kaartenrij (snel-spelen-kaarten, statistieken) —
    net als de carrousels op chess.com's homepagina. Scrollt binnen zichzelf,
    met snap zodat kaarten netjes uitlijnen i.p.v. halverwege blijven hangen. */
