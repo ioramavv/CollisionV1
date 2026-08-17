@@ -751,6 +751,24 @@ body {
   }
 }
 
+/* Neerzet-animatie: het hulpstuk "popt" naar zijn volle formaat i.p.v.
+   zomaar instant te verschijnen zodra een plaatsing bevestigd wordt. */
+.tool-place-pop {
+  animation: tool-place-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes tool-place-pop {
+  0% { transform: rotate(45deg) scale(0.2); opacity: 0; }
+  60% { transform: rotate(45deg) scale(1.15); opacity: 1; }
+  100% { transform: rotate(45deg) scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-place-pop {
+    animation: none;
+  }
+}
+
 /* Pagina-overgang: voelt als het schuiven van een spelstuk over het bord —
    komt van opzij binnenschuiven en veert er licht overheen tot rust, net
    als een stuiter in het spel zelf.
