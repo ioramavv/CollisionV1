@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
 import { chooseComputerTurn } from "@/lib/collisionAI";
 import { DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
-import Board, { diffMove } from "@/lib/Board";
+import Board, { diffMove, diffPlace } from "@/lib/Board";
 import { useSiteContent, DEFAULT_CONTENT } from "@/lib/siteContent";
 import { useTranslation, useLocale } from "@/lib/i18n";
 
@@ -71,6 +71,7 @@ export default function TutorialPage() {
   const [error, setError] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [slideAnim, setSlideAnim] = useState(null);
+  const [placeAnim, setPlaceAnim] = useState(null);
   const computerTurnRef = useRef(false);
   const stateRef = useRef(state);
   const prevBoardRef = useRef(null);
@@ -98,6 +99,10 @@ export default function TutorialPage() {
       if (!reduceMotion) {
         const diff = diffMove(prevBoard, state.board);
         if (diff) setSlideAnim({ ...diff, animating: false });
+        else {
+          const placed = diffPlace(prevBoard, state.board);
+          if (placed) setPlaceAnim(placed);
+        }
       }
     }
     prevBoardRef.current = state.board;
@@ -116,6 +121,14 @@ export default function TutorialPage() {
     const t = setTimeout(() => setSlideAnim(null), 260);
     return () => clearTimeout(t);
   }, [slideAnim?.animating]);
+
+  // Zelfde opruimtruc als op de echte spelpagina: de "pop" zelf is een
+  // vaste CSS-animatie (zie .tool-place-pop), dit ruimt enkel de state op.
+  useEffect(() => {
+    if (!placeAnim) return;
+    const t = setTimeout(() => setPlaceAnim(null), 320);
+    return () => clearTimeout(t);
+  }, [placeAnim]);
 
   // Laat de computer (rol B, Makkelijk) automatisch spelen zodra hij aan
   // zet is. Volledig lokaal, dus geen race-conditions tussen clients zoals
@@ -299,6 +312,7 @@ export default function TutorialPage() {
             board={state.board}
             selected={selected}
             slideAnim={slideAnim}
+            placeAnim={placeAnim}
             interactive={isMyTurn}
             highlight={highlightPawn}
             onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}

@@ -9,7 +9,7 @@ import {
 import { applyMove, applyPlaceTool, reconstructBoard, bothPawnsCanReachCenter, DIRS } from "@/lib/collisionEngine";
 import { chooseComputerTurn } from "@/lib/collisionAI";
 import { Avatar, Rating, DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
-import Board, { diffMove } from "@/lib/Board";
+import Board, { diffMove, diffPlace } from "@/lib/Board";
 import { useTranslation } from "@/lib/i18n";
 
 function Confetti() {
@@ -71,6 +71,7 @@ export default function GamePage() {
   const [archived, setArchived] = useState(false);
   const [archiveError, setArchiveError] = useState(null);
   const [slideAnim, setSlideAnim] = useState(null);
+  const [placeAnim, setPlaceAnim] = useState(null);
   const [playerNames, setPlayerNames] = useState({ A: null, B: null });
   const [playerRatings, setPlayerRatings] = useState({ A: null, B: null });
   const [ratingDelta, setRatingDelta] = useState(null); // { A, B } — verschil t.o.v. rating bij het laden van deze pagina
@@ -274,6 +275,10 @@ export default function GamePage() {
       if (!reduceMotion) {
         const diff = diffMove(prevBoard, state.board);
         if (diff) setSlideAnim({ ...diff, animating: false });
+        else {
+          const placed = diffPlace(prevBoard, state.board);
+          if (placed) setPlaceAnim(placed);
+        }
       }
     }
     prevBoardRef.current = state.board;
@@ -292,6 +297,14 @@ export default function GamePage() {
     const t = setTimeout(() => setSlideAnim(null), 260);
     return () => clearTimeout(t);
   }, [slideAnim?.animating]);
+
+  // De "pop"-animatie zelf is een vaste CSS-animatie (zie .tool-place-pop);
+  // dit ruimt enkel de state weer op zodra 'ie klaar is.
+  useEffect(() => {
+    if (!placeAnim) return;
+    const t = setTimeout(() => setPlaceAnim(null), 320);
+    return () => clearTimeout(t);
+  }, [placeAnim]);
 
   const pushState = useCallback(async (nextState, status) => {
     const payload = status ? { state: nextState, status } : { state: nextState };
@@ -620,6 +633,7 @@ export default function GamePage() {
               board={displayBoard}
               selected={!viewingHistory ? selected : null}
               slideAnim={!viewingHistory ? slideAnim : null}
+              placeAnim={!viewingHistory ? placeAnim : null}
               interactive={isMyTurn && !viewingHistory}
               onCellClick={(r, c) => {
                 if (placing) { handlePlaceCellTap(r, c); return; }
