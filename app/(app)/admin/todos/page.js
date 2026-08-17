@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Check, Square, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Check, Square, Trash2, Copy, ClipboardCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { BoardLoader } from "@/lib/ui";
 
@@ -18,6 +18,7 @@ export default function AdminTodosPage() {
   const [newText, setNewText] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -89,6 +90,22 @@ export default function AdminTodosPage() {
   const open = todos.filter((t) => !t.done);
   const done = todos.filter((t) => t.done);
 
+  // Zet de openstaande to-do's om in een kant-en-klaar promptje, zodat je 'm
+  // alleen nog maar hoeft te plakken in een bericht aan Claude — Claude zelf
+  // heeft geen inkomende webhook o.i.d. om rechtstreeks "aangetikt" te
+  // worden, dus dit is de praktische versie van "direct naar Claude sturen".
+  async function copyForClaude() {
+    const lines = open.map((t) => `- ${t.text}`).join("\n");
+    const message = `Lees de to-do-lijst in de adminpagina en werk deze openstaande punten af:\n\n${lines}`;
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Kopiëren naar klembord is niet gelukt — je browser blokkeert dat mogelijk.");
+    }
+  }
+
   return (
     <main className="min-h-screen px-4 py-10 max-w-2xl mx-auto flex flex-col gap-6">
       <div className="flex items-center gap-2">
@@ -96,17 +113,17 @@ export default function AdminTodosPage() {
         <h1 className="text-xl font-extrabold uppercase tracking-widest">To-do&apos;s</h1>
       </div>
 
-      <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Verzamel hier verzoeken/ideeën voor Claude, zodat we ze samen kunnen afwerken i.p.v.
-        verspreid over losse berichten. Alleen jij ziet dit lijstje.
-      </p>
-
       {error && <p className="text-sm" style={{ color: "#e07a5f" }}>{error}</p>}
 
       <section className="panel">
-        <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-          Open ({open.length})
-        </h2>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <h2 className="text-sm uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+            Open ({open.length})
+          </h2>
+          <button className="btn btn-icon" title="Kopieer voor Claude" onClick={copyForClaude} disabled={open.length === 0}>
+            {copied ? <ClipboardCheck size={15} style={{ color: "#9db98a" }} /> : <Copy size={15} />}
+          </button>
+        </div>
         <form onSubmit={addTodo} className="flex items-center gap-2 mb-3">
           <input
             type="text"

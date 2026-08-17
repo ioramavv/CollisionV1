@@ -754,10 +754,16 @@ export default function GamePage() {
           <div className="text-xs flex items-center justify-between flex-wrap gap-1" style={{ color: "var(--muted)" }}>
             <span className="flex items-center gap-1">
               <Avatar username={playerNames.A} size={18} /> {nameFor("A")} <Rating value={playerRatings.A} />
+              <span className="flex items-center gap-1 mono" title={t("game.tool")}>
+                <ToolIcon size={11} /> {state.toolsRemaining.A}
+              </span>
             </span>
             <span>{t("game.vs")}</span>
             <span className="flex items-center gap-1">
               <Avatar username={playerNames.B} size={18} /> {nameFor("B")} <Rating value={playerRatings.B} />
+              <span className="flex items-center gap-1 mono" title={t("game.tool")}>
+                <ToolIcon size={11} /> {state.toolsRemaining.B}
+              </span>
             </span>
           </div>
           <p className="text-sm flex items-center gap-2">
@@ -768,11 +774,11 @@ export default function GamePage() {
                 ? t("game.playerIsUp", { name: nameFor(state.turn) })
                 : isMyTurn ? t("game.youAreUp") : t("game.playerIsUp", { name: nameFor(state.turn) })}
           </p>
-          <div className="text-xs mono flex flex-col gap-1" style={{ color: "var(--muted)" }}>
-            <div>{t("game.toolsRemaining", { name: nameFor("A"), count: state.toolsRemaining.A })}</div>
-            <div>{t("game.toolsRemaining", { name: nameFor("B"), count: state.toolsRemaining.B })}</div>
-            {game.vs_computer && <div>{t("game.computerLabel", { difficulty: t(`lobby.difficulty.${game.difficulty}`) || game.difficulty })}</div>}
-          </div>
+          {game.vs_computer && (
+            <div className="text-xs mono" style={{ color: "var(--muted)" }}>
+              {t("game.computerLabel", { difficulty: t(`lobby.difficulty.${game.difficulty}`) || game.difficulty })}
+            </div>
+          )}
           {pendingPlacement ? (
             <div className="hide-mobile flex items-center gap-2">
               <button className="btn btn-solid" onClick={confirmPlacement}><Check size={15} /> {t("common.confirm")}</button>
