@@ -139,20 +139,32 @@ export default function GamePage() {
       if (error || !data) { setError(tRef.current("game.error.notFound")); setLoading(false); return; }
       setGame(data);
       committedStateRef.current = data.state;
+      // Bij vs_computer is player_a altijd de echte account (de computer
+      // heeft er geen), maar computer_side bepaalt met welke kleur pion de
+      // computer daadwerkelijk speelt — de speler kan er dus voor kiezen om
+      // als B (dus als tweede) te beginnen.
+      const computerSide = data.vs_computer ? (data.computer_side || "B") : null;
       if (data.local_multiplayer) {
         setPlayerNames({
           A: data.state?.localNames?.A || tRef.current("lobby.modal.local.player1Placeholder"),
           B: data.state?.localNames?.B || tRef.current("lobby.modal.local.player2Placeholder"),
         });
       } else {
-        setPlayerNames({ A: data.a?.username || null, B: data.vs_computer ? "Computer" : (data.b?.username || null) });
+        setPlayerNames({
+          A: computerSide === "A" ? "Computer" : (data.a?.username || null),
+          B: computerSide === "B" ? "Computer" : (computerSide === "A" ? (data.a?.username || null) : (data.b?.username || null)),
+        });
       }
       const initialRatings = data.local_multiplayer
         ? { A: null, B: null }
-        : { A: data.a?.rating ?? null, B: data.vs_computer ? null : (data.b?.rating ?? null) };
+        : data.vs_computer
+          ? { A: computerSide === "A" ? null : (data.a?.rating ?? null), B: computerSide === "B" ? null : (data.a?.rating ?? null) }
+          : { A: data.a?.rating ?? null, B: data.b?.rating ?? null };
       setPlayerRatings(initialRatings);
       initialRatingsRef.current = initialRatings;
-      const role = data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null;
+      const role = data.vs_computer
+        ? (computerSide === "A" ? "B" : "A")
+        : (data.player_a === user.id ? "A" : data.player_b === user.id ? "B" : null);
       setMyRole(role);
       setLoading(false);
 
@@ -177,7 +189,11 @@ export default function GamePage() {
             committedStateRef.current = payload.new?.state;
             setGame((prev) => {
               if (!prev?.state?.winner && payload.new?.state?.winner) {
-                setShowOverlay(true);
+                // Pas het overlay-scherm tonen ná de schuifanimatie van de
+                // winnende zet (zelfde duur als slideAnim hieronder) — anders
+                // verschijnt "je hebt verloren/gewonnen" al voordat je de
+                // laatste zet zelf hebt kunnen zien.
+                setTimeout(() => setShowOverlay(true), 260);
                 maybeApplyRating(payload.new);
               }
               return payload.new;
@@ -312,16 +328,23 @@ export default function GamePage() {
     if (error) setError(error.message);
   }, [id]);
 
-  // Speelt de beurt van de computerspeler (rol B) uit. Draait alleen in de
-  // browser van de eigenaar (rol A) — er is geen aparte databasegebruiker
-  // voor de computer, dus alleen die client mag zetten voor B berekenen.
+  // Speelt de beurt van de computerspeler uit — welke kleur (A of B) de
+  // computer bestuurt hangt af van game.computer_side (de speler kan er nu
+  // voor kiezen om als B, dus als tweede, te beginnen). Draait alleen in de
+  // browser van de account-eigenaar (player_a — er is geen aparte
+  // databasegebruiker voor de computer, dus alleen díe client mag zetten
+  // voor de computerkant berekenen; myRole geeft dat hier niet meer
+  // betrouwbaar aan, want dat is nu de kleur van de mens, niet per se "A").
   // Let op: de dependency-array bevat bewust alleen primitieven, niet het
   // hele `state`-object — anders zou elke tussenliggende zet binnen dezelfde
   // computerbeurt (via de realtime-update) dit effect opnieuw laten
   // opstarten en zichzelf meteen weer afbreken.
+  const computerSide = game?.vs_computer ? (game.computer_side || "B") : null;
+  const humanSide = computerSide === "A" ? "B" : "A";
+  const isGameOwner = !!(user && game && game.player_a === user.id);
   useEffect(() => {
-    if (!game?.vs_computer || myRole !== "A" || state?.winner) return;
-    if (state?.turn !== "B") return;
+    if (!game?.vs_computer || !isGameOwner || state?.winner) return;
+    if (state?.turn !== computerSide) return;
     if (computerTurnRef.current) return;
     computerTurnRef.current = true;
     let cancelled = false;
@@ -331,17 +354,17 @@ export default function GamePage() {
       const startState = stateRef.current;
       if (cancelled || !startState) { computerTurnRef.current = false; return; }
 
-      const action = chooseComputerTurn(startState, "B", game.difficulty);
+      const action = chooseComputerTurn(startState, computerSide, game.difficulty);
       if (!action) {
-        await pushState({ ...startState, turn: "A" });
+        await pushState({ ...startState, turn: humanSide });
         computerTurnRef.current = false;
         return;
       }
 
       if (action.type === "place") {
-        const result = applyPlaceTool(startState, "B", action.r, action.c);
+        const result = applyPlaceTool(startState, computerSide, action.r, action.c);
         if (result.ok) await pushState(result.state);
-        else if (!cancelled) await pushState({ ...startState, turn: "A" });
+        else if (!cancelled) await pushState({ ...startState, turn: humanSide });
       } else {
         let cur = startState;
         let pos = action.from;
@@ -349,7 +372,7 @@ export default function GamePage() {
         for (let i = 0; i < action.dirs.length; i++) {
           if (cancelled) break;
           const isLast = i === action.dirs.length - 1;
-          const result = applyMove(cur, "B", pos, action.dirs[i], isLast);
+          const result = applyMove(cur, computerSide, pos, action.dirs[i], isLast);
           if (!result.ok) break;
           movedAny = true;
           cur = result.state;
@@ -360,13 +383,13 @@ export default function GamePage() {
         }
         // Veiligheidsvangnet: als er (onverwacht) geen enkel segment lukte,
         // toch de beurt doorgeven zodat het spel nooit vastloopt.
-        if (!movedAny && !cancelled) await pushState({ ...startState, turn: "A" });
+        if (!movedAny && !cancelled) await pushState({ ...startState, turn: humanSide });
       }
       computerTurnRef.current = false;
     })();
 
     return () => { cancelled = true; };
-  }, [game?.vs_computer, game?.difficulty, myRole, state?.turn, state?.winner, pushState]);
+  }, [game?.vs_computer, game?.difficulty, isGameOwner, computerSide, humanSide, state?.turn, state?.winner, pushState]);
 
   function selectCell(r, c) {
     if (viewingHistory || !isMyTurn || placing) return;
