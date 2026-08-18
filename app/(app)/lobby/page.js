@@ -456,22 +456,24 @@ export default function LobbyPage() {
                 </p>
                 <p className="text-xs" style={{ color: "var(--muted)" }}>{t("lobby.modal.computer.chooseSide")}</p>
                 <PieceGradients />
-                <button
-                  className="btn"
-                  style={{ justifyContent: "flex-start", gap: 10, padding: "10px 14px" }}
-                  onClick={() => createComputerGame("A")}
-                >
-                  <span style={{ width: 18, flexShrink: 0 }}><Pawn owner="A" /></span>
-                  {t("lobby.modal.computer.playAsA")}
-                </button>
-                <button
-                  className="btn"
-                  style={{ justifyContent: "flex-start", gap: 10, padding: "10px 14px" }}
-                  onClick={() => createComputerGame("B")}
-                >
-                  <span style={{ width: 18, flexShrink: 0 }}><Pawn owner="B" /></span>
-                  {t("lobby.modal.computer.playAsB")}
-                </button>
+                <div className="flex items-stretch gap-2">
+                  <button
+                    className="btn"
+                    style={{ flex: 1, flexDirection: "column", padding: "18px 10px" }}
+                    onClick={() => createComputerGame("A")}
+                    aria-label={t("lobby.modal.computer.playAsA")}
+                  >
+                    <span style={{ width: 44 }}><Pawn owner="A" /></span>
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ flex: 1, flexDirection: "column", padding: "18px 10px" }}
+                    onClick={() => createComputerGame("B")}
+                    aria-label={t("lobby.modal.computer.playAsB")}
+                  >
+                    <span style={{ width: 44 }}><Pawn owner="B" /></span>
+                  </button>
+                </div>
               </div>
             )}
 
