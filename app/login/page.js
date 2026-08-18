@@ -33,11 +33,19 @@ export default function LoginPage() {
     <main
       className="min-h-screen flex items-center justify-center px-4 py-10"
       style={{
+        // Effen achtergrondkleur als fallback (donker, past bij de foto)
+        // zolang de afbeelding nog laadt — of áls die om wat voor reden dan
+        // ook niet laadt, in plaats van dat dan het onderliggende
+        // thema-vlak van <body> zichtbaar wordt.
+        backgroundColor: "#17140f",
         backgroundImage:
           "linear-gradient(180deg, rgba(10,8,5,0.55) 0%, rgba(10,8,5,0.72) 55%, rgba(10,8,5,0.92) 100%), url(/images/board-hero.jpg)",
         backgroundSize: "cover",
         backgroundPosition: "center 42%",
-        backgroundAttachment: "fixed",
+        // Geen background-attachment: fixed — dat faalt op iOS Safari vaak
+        // stil (de hele achtergrond-afbeelding verdwijnt dan), waardoor je
+        // alsnog het onderliggende thema (bv. Woody's houtnerf) door <main>
+        // heen zag i.p.v. deze bordfoto.
       }}
     >
       <div className="w-full max-w-sm flex flex-col items-center gap-8">
