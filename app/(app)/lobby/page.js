@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Search, UserPlus, Check, Play, Trash2, MoreVertical, X, FolderOpen, Trophy, Skull, Cpu, TriangleAlert, Bug, Smartphone, ChevronRight, HelpCircle, ArrowLeftRight, Archive, Eye } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
-import { DIFFICULTIES } from "@/lib/collisionAI";
+import { Pawn, PieceGradients } from "@/lib/Board";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
 import { getDevSession } from "@/lib/devAccountSwitch";
 import { useSiteContent, DEFAULT_CONTENT } from "@/lib/siteContent";
@@ -248,10 +248,15 @@ export default function LobbyPage() {
     if (!error) router.push(`/game/${data.id}`);
   }
 
-  async function createComputerGame(difficulty) {
+  // De moeilijkheidsgraad-keuze is uit de lobby gehaald — nieuwe partijen
+  // tegen de computer gebruiken altijd 'expert'. In plaats daarvan kiest de
+  // speler hier welke pionkleur (dus welke kant) ze zelf spelen; de
+  // computer bestuurt de andere kant (games.computer_side, zie schema.sql).
+  async function createComputerGame(humanSide) {
+    const computerSide = humanSide === "A" ? "B" : "A";
     const { data, error } = await supabase
       .from("games")
-      .insert({ player_a: user.id, status: "active", vs_computer: true, difficulty, state: freshState() })
+      .insert({ player_a: user.id, status: "active", vs_computer: true, difficulty: "expert", computer_side: computerSide, state: freshState() })
       .select()
       .single();
     if (!error) router.push(`/game/${data.id}`);
@@ -449,12 +454,24 @@ export default function LobbyPage() {
                   <TriangleAlert size={14} strokeWidth={2} />
                   {t("lobby.modal.computer.betaWarning")}
                 </p>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>{t("lobby.modal.computer.chooseDifficulty")}</p>
-                {DIFFICULTIES.map((difficulty) => (
-                  <button key={difficulty} className="btn" onClick={() => createComputerGame(difficulty)}>
-                    <Cpu size={15} /> {t(`lobby.difficulty.${difficulty}`)}
-                  </button>
-                ))}
+                <p className="text-xs" style={{ color: "var(--muted)" }}>{t("lobby.modal.computer.chooseSide")}</p>
+                <PieceGradients />
+                <button
+                  className="btn"
+                  style={{ justifyContent: "flex-start", gap: 10, padding: "10px 14px" }}
+                  onClick={() => createComputerGame("A")}
+                >
+                  <span style={{ width: 18, flexShrink: 0 }}><Pawn owner="A" /></span>
+                  {t("lobby.modal.computer.playAsA")}
+                </button>
+                <button
+                  className="btn"
+                  style={{ justifyContent: "flex-start", gap: 10, padding: "10px 14px" }}
+                  onClick={() => createComputerGame("B")}
+                >
+                  <span style={{ width: 18, flexShrink: 0 }}><Pawn owner="B" /></span>
+                  {t("lobby.modal.computer.playAsB")}
+                </button>
               </div>
             )}
 

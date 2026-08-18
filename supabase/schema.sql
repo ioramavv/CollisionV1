@@ -108,8 +108,17 @@ create table if not exists games (
   -- de zetten van de computer — er is geen aparte databasegebruiker voor.
   vs_computer boolean not null default false,
   -- Moeilijkheidsgraad van de computerspeler, alleen relevant als
-  -- vs_computer waar is. Zie lib/collisionAI.js voor de betekenis.
+  -- vs_computer waar is. Zie lib/collisionAI.js voor de betekenis. De
+  -- lobby laat hier zelf geen keuze meer in — nieuwe partijen krijgen altijd
+  -- 'expert' — maar de kolom/oude waarden blijven bestaan.
   difficulty text not null default 'medium' check (difficulty in ('easy', 'medium', 'hard', 'expert')),
+  -- Welke pionkleur (A of B) de computer bestuurt bij vs_computer, alleen
+  -- relevant als vs_computer waar is. Player_a (de echte account) speelt
+  -- dan de andere kant — zo kan de speler ervoor kiezen om als B, dus als
+  -- tweede, te beginnen i.p.v. altijd als A (die van nature als eerste
+  -- mag). Default 'B' voor bestaande/oudere partijen, die altijd A=mens,
+  -- B=computer waren.
+  computer_side text default 'B' check (computer_side in ('A', 'B')),
   -- "Pass-and-play" op één apparaat: player_a bestuurt om beurten beide
   -- kanten (net als bij vs_computer blijft player_b leeg). De namen van
   -- beide kanten staan in state.localNames, niet in een aparte kolom.
@@ -131,6 +140,9 @@ alter table games drop constraint if exists games_difficulty_check;
 alter table games add constraint games_difficulty_check check (difficulty in ('easy', 'medium', 'hard', 'expert'));
 alter table games add column if not exists rating_applied boolean not null default false;
 alter table games add column if not exists local_multiplayer boolean not null default false;
+alter table games add column if not exists computer_side text default 'B';
+alter table games drop constraint if exists games_computer_side_check;
+alter table games add constraint games_computer_side_check check (computer_side in ('A', 'B'));
 
 select _drop_all_policies('games', 'SELECT');
 create policy "Zichtbaarheid van partijen"
