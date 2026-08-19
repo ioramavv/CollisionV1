@@ -38,16 +38,17 @@
 }
 
 /* Woody — zelfde donkerte-niveau als Donker (geen licht thema), maar in
-   houtkleuren i.p.v. het bijna-zwarte antraciet: een donkere walnoot-
-   achtergrond, iets lichter paneel, en een echte houtnerf-textuur op de
-   achtergrond (zie de body-override onderaan dit bestand) i.p.v. het
-   geblokte patroon dat de andere thema's gebruiken. */
+   dezelfde walnootkleur als het spelbord zelf. --panel is nu letterlijk
+   var(--walnut) (i.p.v. een losse, net-iets-andere bruintint) en krijgt
+   bovendien een echte walnoot-houtnerffoto als achtergrond (zie
+   [data-theme="woody"] .panel hieronder) — "de blokken" zijn dus nu
+   zowel qua kleur als qua textuur hetzelfde hout als het bord. */
 [data-theme="woody"] {
   --bg: #2b1b10;
-  --panel: #3f2a19;
+  --panel: var(--walnut);
   --panel-line: #5c4128;
   --text: #f3e6cf;
-  --muted: #b9986c;
+  --muted: #d8bf8c;
   --panel-shade: #1f130b;
   /* Zelfde combinatie als Donker (licht kaartje op een donkere achtergrond) —
      Woody is immers ook een donker thema. */
@@ -95,22 +96,31 @@ body {
      aanwezig is zonder ooit van de content af te leiden. */
   background-image: repeating-conic-gradient(var(--bg-pattern) 0% 25%, transparent 0% 50%);
   background-size: 36px 36px;
-  background-attachment: fixed;
+  /* Geen background-attachment: fixed — dat faalt op iOS Safari vaak
+     stilletjes (de hele achtergrond-afbeelding verdwijnt dan i.p.v. netjes
+     terug te vallen op scroll-gedrag), zie ook de Woody/Licht-thema's
+     hieronder en de fix op de inlog-/aankomstpagina. */
 }
 
-/* Woody krijgt een echte houtnerf-textuur i.p.v. het geblokte patroon
-   hierboven — een SVG met fractal-noise (feTurbulence), uitgerekt in één
-   richting zodat het als vloeiende nerf oogt, en ingekleurd naar warm bruin
-   (feColorMatrix) op lage dekking zodat de paneeltjes er goed leesbaar
-   bovenop blijven. Volledig inline als data-URI, geen los afbeeldingbestand
-   nodig. Eén grote, niet-herhalende afbeelding (background-repeat: no-repeat
-   + background-size: cover) i.p.v. een tegelend patroon — dat gaf een
-   duidelijk zichtbare naad op de plek waar de tegel herhaalde. */
+/* Woody krijgt een echte foto van walnotenhout als achtergrond i.p.v. het
+   geblokte patroon hierboven (en i.p.v. de eerdere synthetische SVG-
+   houtnerf) — dezelfde foto als hieronder bij .panel, voor een consistente
+   "hetzelfde hout overal"-uitstraling. Een donkere wash eroverheen trekt 'm
+   dichter naar --walnut toe en houdt de tekst overal leesbaar, ook op de
+   lichtere plekken in de foto zelf. Eén grote, niet-herhalende afbeelding
+   (background-repeat: no-repeat + background-size: cover) i.p.v. een
+   tegelend patroon — dat gaf eerder een duidelijk zichtbare naad op de
+   plek waar de tegel herhaalde. Bewust geen background-attachment: fixed
+   (ook al zet de algemene body-regel hierboven dat wél) — dat faalt op
+   iOS Safari vaak stilletjes en laat dan de hele achtergrond wegvallen. */
 [data-theme="woody"] body {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1800' height='1800'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.14' numOctaves='3' seed='11' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0 0 0 0 0.6 0 0 0 0 0.4 0 0 0 0 0.2 0 0 0 0.28 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+  background-image:
+    linear-gradient(rgba(18, 11, 6, 0.45), rgba(18, 11, 6, 0.45)),
+    url("/textures/walnut.jpg");
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
+  background-attachment: scroll;
 }
 
 /* Licht krijgt een echte linnenweeftextuur i.p.v. het geblokte patroon
@@ -128,7 +138,8 @@ body {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Cpath d='M0 0L7 7M7 0L0 7' stroke='rgba(120,105,80,0.07)' stroke-width='1'/%3E%3C/svg%3E");
   background-size: 140px 140px, 7px 7px;
   background-repeat: repeat, repeat;
-  background-attachment: fixed, fixed;
+  /* Geen background-attachment: fixed, zelfde reden als bij Woody hierboven
+     (faalt stilletjes op iOS Safari). */
 }
 
 /* Voor elementen die zelf klikbaar zijn (onClick) maar geen echte <a>/
@@ -358,6 +369,20 @@ body {
    dezelfde reden ook niet tegelt). */
 [data-theme="light"] .panel {
   background-image: url("/textures/linen.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Woody: de blokken krijgen dezelfde echte walnoot-houtnerffoto als de
+   paginaächtergrond hierboven — zelfde hout, zelfde textuur, overal. Een
+   donkere wash eroverheen (iets steviger dan bij body, panelen moeten de
+   tekst er goed bovenop houden) trekt 'm dichter naar --walnut toe en
+   garandeert voldoende contrast, ook op de lichtere plekken in de foto. */
+[data-theme="woody"] .panel {
+  background-image:
+    linear-gradient(rgba(15, 9, 5, 0.55), rgba(15, 9, 5, 0.55)),
+    url("/textures/walnut.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
