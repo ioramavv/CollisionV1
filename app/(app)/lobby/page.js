@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { freshState } from "@/lib/collisionEngine";
 import { Pawn, PieceGradients } from "@/lib/Board";
 import { Avatar, Badge, Rating, BoardLoader } from "@/lib/ui";
+import LobbyTour from "@/lib/LobbyTour";
 import { getDevSession } from "@/lib/devAccountSwitch";
 import { useSiteContent, DEFAULT_CONTENT } from "@/lib/siteContent";
 import { useTranslation, useLocale } from "@/lib/i18n";
@@ -51,6 +52,24 @@ export default function LobbyPage() {
   const [stats, setStats] = useState({ wins: 0, losses: 0 });
   const [friendsList, setFriendsList] = useState([]);
   const [switchingAccount, setSwitchingAccount] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+
+  // Opnieuw starten vanaf het account-menu terwijl je al op de lobby staat
+  // (dan verandert de route niet, dus de ?tour=1-check in init() hieronder
+  // draait niet opnieuw) — zie de "collision-start-tour"-event in
+  // app/(app)/layout.js, dat gebruikt wordt zodra je al hier bent.
+  useEffect(() => {
+    function handler() { setTourOpen(true); }
+    window.addEventListener("collision-start-tour", handler);
+    return () => window.removeEventListener("collision-start-tour", handler);
+  }, []);
+
+  function finishTour() {
+    setTourOpen(false);
+    try {
+      if (user) window.localStorage.setItem(`collision-tour-seen:${user.id}`, "1");
+    } catch { /* privémodus e.d. — dan komt de rondleiding gewoon terug bij een volgend bezoek */ }
+  }
 
   useEffect(() => {
     let channel;
@@ -63,6 +82,23 @@ export default function LobbyPage() {
       await refreshGames(user.id);
       await refreshBugfixes();
       setLoading(false);
+
+      // Rondleiding: automatisch bij een account dat 'm op dit apparaat nog
+      // nooit gezien heeft (nieuw account, meestal een nieuwe browser dus
+      // ook een lege localStorage), of expliciet opgevraagd via
+      // "Rondleiding" in het account-menu (?tour=1, zie
+      // app/(app)/layout.js). Pas ná setLoading(false) checken, want de
+      // rondleiding wijst naar echte knoppen op de pagina die pas bestaan
+      // zodra het laadscherm weg is.
+      const seenKey = `collision-tour-seen:${user.id}`;
+      let alreadySeen = false;
+      try { alreadySeen = window.localStorage.getItem(seenKey) === "1"; } catch { /* privémodus e.d. */ }
+      if (new URLSearchParams(window.location.search).get("tour") === "1") {
+        router.replace("/lobby");
+        setTourOpen(true);
+      } else if (!alreadySeen) {
+        setTourOpen(true);
+      }
 
       channel = supabase
         .channel(`lobby-games-${crypto.randomUUID()}`)
@@ -400,6 +436,7 @@ export default function LobbyPage() {
 
   return (
     <main className="min-h-screen px-4 py-10 max-w-2xl mx-auto flex flex-col gap-6">
+      <LobbyTour open={tourOpen} onFinish={finishTour} />
       {newGameStep && (
         <div
           style={{
@@ -593,7 +630,7 @@ export default function LobbyPage() {
         </section>
       )}
 
-      <section className="panel">
+      <section className="panel" data-tour="quickplay">
         <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
           {t("lobby.section.quickPlay")}
         </h2>
@@ -634,7 +671,7 @@ export default function LobbyPage() {
               <span className="carousel-card-sub">{t("lobby.card.open.sub")}</span>
             </span>
           </button>
-          <button className="carousel-card" onClick={() => router.push("/tutorial")}>
+          <button className="carousel-card" data-tour="tutorial-card" onClick={() => router.push("/tutorial")}>
             <span className="carousel-card-icon" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
               <HelpCircle size={18} />
             </span>

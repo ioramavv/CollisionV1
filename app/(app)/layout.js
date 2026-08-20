@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, Megaphone, Globe, SunMoon } from "lucide-react";
+import { Swords, Users, MessageSquarePlus, ShieldCheck, LogOut, X, HelpCircle, UserCircle, Megaphone, Globe, SunMoon, Compass } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Avatar, Logo } from "@/lib/ui";
 import { rememberDevSession, isDevAccount } from "@/lib/devAccountSwitch";
@@ -151,6 +151,16 @@ export default function AppLayout({ children }) {
     router.push("/");
   }
 
+  // De rondleiding leeft op de lobbypagina (lib/LobbyTour.js) — sta je daar
+  // al, dan hoeft er niet genavigeerd te worden en volstaat een event dat de
+  // lobbypagina zelf oppikt (?tour=1 in de url verandert de route niet, dus
+  // die check in de lobby's eigen init() zou dan niet opnieuw draaien).
+  function startTour() {
+    setAccountMenuOpen(false);
+    if (pathname === "/lobby") window.dispatchEvent(new CustomEvent("collision-start-tour"));
+    else router.push("/lobby?tour=1");
+  }
+
   function openFeedback() {
     setFeedbackText("");
     setFeedbackSent(false);
@@ -191,6 +201,7 @@ export default function AppLayout({ children }) {
               elke pagina, ook Admin. De taalknop staat niet meer hier, maar
               in de navigatielijst hieronder, naast Lobby/Vrienden/Uitleg. */}
           <button
+            data-tour="avatar"
             onClick={() => setAccountMenuOpen(true)}
             aria-label={t("layout.account.openMenu")}
             style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0 }}
@@ -330,6 +341,7 @@ export default function AppLayout({ children }) {
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <button
+            data-tour="avatar"
             className="mobile-topbar-avatar"
             onClick={() => setAccountMenuOpen(true)}
             aria-label={t("layout.account.openMenu")}
@@ -497,6 +509,10 @@ export default function AppLayout({ children }) {
             <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={() => { setAccountMenuOpen(false); openFeedback(); }}>
               <MessageSquarePlus size={17} strokeWidth={2} />
               {t("layout.nav.feedback")}
+            </button>
+            <button className="sidebar-link" style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }} onClick={startTour}>
+              <Compass size={17} strokeWidth={2} />
+              {t("layout.nav.tour")}
             </button>
             {isAdmin && (
               <Link href="/admin" className="sidebar-link" onClick={() => setAccountMenuOpen(false)}>
