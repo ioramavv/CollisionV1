@@ -26,6 +26,9 @@
   --panel-line: #3d362c;
   --text: #f0ece2;
   --muted: #a89b87;
+  /* Tekst rechtstreeks op de pagina-achtergrond (bv. BoardLoader) — hier
+     gelijk aan --muted, want bg en panel zijn hier allebei donker. */
+  --bg-text: #a89b87;
   /* Eindkleur van de winnaarsoverlay-gradient (.win-panel hieronder). */
   --panel-shade: #1b1712;
   /* "Sticky note"-kaartje op de uitlegpagina — hergebruikt bewust de vaste
@@ -37,25 +40,35 @@
   --bg-pattern: rgba(216, 191, 140, 0.04);
 }
 
-/* Woody — zelfde donkerte-niveau als Donker (geen licht thema), maar in
-   dezelfde walnootkleur als het spelbord zelf. --panel is nu letterlijk
-   var(--walnut) (i.p.v. een losse, net-iets-andere bruintint) en krijgt
-   bovendien een echte walnoot-houtnerffoto als achtergrond (zie
-   [data-theme="woody"] .panel hieronder) — "de blokken" zijn dus nu
-   zowel qua kleur als qua textuur hetzelfde hout als het bord. */
+/* Woody: de blokken ("panels") krijgen de echte walnoot-houtnerffoto van
+   het spelbord (zie [data-theme="woody"] .panel hieronder) — maar de
+   páginaachtergrond erómheen is juist de lichte beige bordkleur zelf
+   (--board-light), in hetzelfde geblokte patroon als de speelvakken (zie
+   de conic-gradient-checker bij body hieronder). Twee bewust verschillende
+   lagen dus: donker walnoothout in de blokken, lichtbeige bordvakjes
+   errond — precies zoals op het echte bord de pionnen/velden donker hout
+   naast lichte vakjes tonen. --panel blijft var(--walnut) voor de blokken. */
 [data-theme="woody"] {
-  --bg: #2b1b10;
+  --bg: var(--board-light);
   --panel: var(--walnut);
   --panel-line: #5c4128;
   --text: #f3e6cf;
   --muted: #d8bf8c;
+  /* Voor tekst die rechtstreeks op de (nu lichte) pagina-achtergrond staat
+     i.p.v. op een donker walnoot-blok — bv. het "Laden..."-schermpje vóór
+     de blokken geladen zijn (zie BoardLoader in lib/ui.js). --muted zelf
+     blijft licht (voor gebruik ín de donkere blokken), dus hiervoor een
+     donkere variant zodat dat ene geval ook leesbaar blijft. */
+  --bg-text: var(--panel-line);
   --panel-shade: #1f130b;
   /* Zelfde combinatie als Donker (licht kaartje op een donkere achtergrond) —
      Woody is immers ook een donker thema. */
   --callout-bg: var(--maple);
   --callout-text: var(--walnut);
-  /* Wordt hier niet gebruikt (zie de houtnerf-textuur bij body hieronder),
-     maar blijft gezet zodat de variabele overal gedefinieerd is. */
+  /* Wordt hier niet gebruikt (het geblokte patroon bij body hieronder is een
+     eigen conic-gradient-checker in --board-dark/--board-light, geen gebruik
+     van --bg-pattern), maar blijft gezet zodat de variabele overal
+     gedefinieerd is. */
   --bg-pattern: rgba(0, 0, 0, 0);
 }
 
@@ -69,6 +82,9 @@
   --panel-line: #ddd4c0;
   --text: #2a251d;
   --muted: #8c8270;
+  /* Tekst rechtstreeks op de pagina-achtergrond (bv. BoardLoader) — hier
+     gelijk aan --muted, want bg en panel zijn hier allebei licht. */
+  --bg-text: #8c8270;
   --panel-shade: #ded4bd;
   --callout-bg: var(--walnut);
   --callout-text: var(--maple);
@@ -102,24 +118,23 @@ body {
      hieronder en de fix op de inlog-/aankomstpagina. */
 }
 
-/* Woody krijgt een echte foto van walnotenhout als achtergrond i.p.v. het
-   geblokte patroon hierboven (en i.p.v. de eerdere synthetische SVG-
-   houtnerf) — dezelfde foto als hieronder bij .panel, voor een consistente
-   "hetzelfde hout overal"-uitstraling. Een donkere wash eroverheen trekt 'm
-   dichter naar --walnut toe en houdt de tekst overal leesbaar, ook op de
-   lichtere plekken in de foto zelf. Eén grote, niet-herhalende afbeelding
-   (background-repeat: no-repeat + background-size: cover) i.p.v. een
-   tegelend patroon — dat gaf eerder een duidelijk zichtbare naad op de
-   plek waar de tegel herhaalde. Bewust geen background-attachment: fixed
-   (ook al zet de algemene body-regel hierboven dat wél) — dat faalt op
-   iOS Safari vaak stilletjes en laat dan de hele achtergrond wegvallen. */
+/* Woody: de páginaachtergrond is NIET de walnootfoto (die is voorbehouden
+   aan de blokken, zie [data-theme="woody"] .panel hieronder) — dit is de
+   lichte beige bordkleur zelf (--board-light), in een geblokt patroon met
+   --board-dark, exact zoals de afwisselende vakjes op het echte speelbord.
+   Een pure CSS-checker (conic-gradient, 2x2 tegel die herhaalt) i.p.v. een
+   afbeelding — scherp op elk scherm, geen laadtijd, geen naad. Bewust geen
+   background-attachment: fixed (ook al zet de algemene body-regel hierboven
+   dat niet meer) — dat faalt op iOS Safari vaak stilletjes. */
 [data-theme="woody"] body {
-  background-image:
-    linear-gradient(rgba(18, 11, 6, 0.45), rgba(18, 11, 6, 0.45)),
-    url("/textures/walnut.jpg");
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
+  background-color: var(--board-light);
+  background-image: conic-gradient(
+    var(--board-dark) 90deg,
+    var(--board-light) 90deg 180deg,
+    var(--board-dark) 180deg 270deg,
+    var(--board-light) 270deg
+  );
+  background-size: 48px 48px;
   background-attachment: scroll;
 }
 
