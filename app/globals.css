@@ -389,11 +389,12 @@ body {
   background-repeat: no-repeat;
 }
 
-/* Woody: de blokken krijgen dezelfde echte walnoot-houtnerffoto als de
-   paginaächtergrond hierboven — zelfde hout, zelfde textuur, overal. Een
-   donkere wash eroverheen (iets steviger dan bij body, panelen moeten de
-   tekst er goed bovenop houden) trekt 'm dichter naar --walnut toe en
-   garandeert voldoende contrast, ook op de lichtere plekken in de foto. */
+/* Woody: de blokken krijgen de echte walnoot-houtnerffoto (i.p.v. het
+   lichtbeige bordpatroon dat de páginaachtergrond hierboven inmiddels
+   heeft). Een donkere wash eroverheen (iets steviger dan bij body, panelen
+   moeten de tekst er goed bovenop houden) trekt 'm dichter naar --walnut
+   toe en garandeert voldoende contrast, ook op de lichtere plekken in de
+   foto. */
 [data-theme="woody"] .panel {
   background-image:
     linear-gradient(rgba(15, 9, 5, 0.55), rgba(15, 9, 5, 0.55)),
@@ -401,6 +402,20 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+/* .stat-card/.carousel-card zijn kleinere "ingelaten" kaartjes bínnen een
+   .panel-blok en gebruiken normaal gesproken var(--bg) als achtergrond —
+   in Donker/Licht is dat prima, want daar zijn --bg en --panel toonaard
+   allebei even donker/licht. In Woody is --bg nu juist het lichtbeige
+   bordpatroon (voor de páginaachtergrond), terwijl deze kaartjes ín een
+   donker walnoot-blok zitten — dat gaf lichte kaartjes met witte tekst
+   erop, onleesbaar. Hier dus een donkere tint (--panel-shade, al elders in
+   dit thema gebruikt) i.p.v. --bg, zodat de tekst (--text/--muted, beide
+   licht) weer goed leesbaar is. */
+[data-theme="woody"] .stat-card,
+[data-theme="woody"] .carousel-card {
+  background: var(--panel-shade);
 }
 
 /* Horizontaal scrollende kaartenrij (snel-spelen-kaarten, statistieken) —
