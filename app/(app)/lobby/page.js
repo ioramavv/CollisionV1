@@ -677,52 +677,55 @@ export default function LobbyPage() {
           "Jouw beurt"/"Tegenstander aan zet" verdwijnen. */}
       {finishedGames.length > 0 && (
         <section className="panel">
-          <h2 className="text-sm uppercase tracking-widest mb-3" style={{ color: "var(--accent)" }}>
-            {t("lobby.section.finished")}
-          </h2>
-          {finishedActionError && <p className="text-xs mb-2" style={{ color: "#e07a5f" }}>{finishedActionError}</p>}
-          <ul className="flex flex-col gap-2">
-            {finishedGames.map((g) => {
-              const opponentName = g.vs_computer
-                ? "Computer"
-                : g.local_multiplayer
-                  ? (g.state?.localNames?.B || t("lobby.modal.local.player2Placeholder"))
-                  : (g.player_a === user.id ? g.b?.username : g.a?.username);
-              const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
-              const myRole = g.player_a === user.id ? "A" : "B";
-              const won = g.state?.winner === myRole;
-              const winnerName = g.local_multiplayer
-                ? (g.state?.localNames?.[g.state?.winner] || `${t("lobby.modal.local.player1Placeholder")}/${t("lobby.modal.local.player2Placeholder")}`)
-                : null;
-              const busy = finishedActionId === g.id;
-              return (
-                <li
-                  key={g.id}
-                  className="clickable-row flex items-center justify-between text-sm"
-                  onClick={() => router.push(`/game/${g.id}`)}
-                >
-                  <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
-                    <Avatar username={opponentName} />
-                    {t("lobby.game.withOpponent", { name: opponentName || t("common.unknown") })} <Rating value={opponentRating} />
-                    <Badge tone={g.local_multiplayer || won ? "active" : "closed"}>
-                      {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? t("lobby.badge.wonBy", { name: winnerName }) : (won ? t("lobby.badge.won") : t("lobby.badge.lost"))}
-                    </Badge>
-                  </span>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button className="btn btn-icon" title={t("lobby.actions.viewGame")} onClick={() => router.push(`/game/${g.id}`)}>
-                      <Eye size={14} />
-                    </button>
-                    <button className="btn btn-icon" title={t("lobby.actions.archive")} onClick={() => archiveFinished(g.id)} disabled={busy}>
-                      <Archive size={14} />
-                    </button>
-                    <button className="btn btn-icon" title={t("lobby.actions.ignore")} onClick={() => dismissFinished(g.id)} disabled={busy}>
-                      <X size={14} />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <details>
+            <summary className="summary-reset text-sm uppercase tracking-widest flex items-center gap-2" style={{ color: "var(--accent)" }}>
+              {t("lobby.section.finished")} — {finishedGames.length}
+              <ChevronRight size={15} className="details-chevron" />
+            </summary>
+            {finishedActionError && <p className="text-xs mb-2 mt-3" style={{ color: "#e07a5f" }}>{finishedActionError}</p>}
+            <ul className="flex flex-col gap-2 mt-3">
+              {finishedGames.map((g) => {
+                const opponentName = g.vs_computer
+                  ? "Computer"
+                  : g.local_multiplayer
+                    ? (g.state?.localNames?.B || t("lobby.modal.local.player2Placeholder"))
+                    : (g.player_a === user.id ? g.b?.username : g.a?.username);
+                const opponentRating = (g.vs_computer || g.local_multiplayer) ? null : (g.player_a === user.id ? g.b?.rating : g.a?.rating);
+                const myRole = g.player_a === user.id ? "A" : "B";
+                const won = g.state?.winner === myRole;
+                const winnerName = g.local_multiplayer
+                  ? (g.state?.localNames?.[g.state?.winner] || `${t("lobby.modal.local.player1Placeholder")}/${t("lobby.modal.local.player2Placeholder")}`)
+                  : null;
+                const busy = finishedActionId === g.id;
+                return (
+                  <li
+                    key={g.id}
+                    className="clickable-row flex items-center justify-between text-sm"
+                    onClick={() => router.push(`/game/${g.id}`)}
+                  >
+                    <span className="mono flex items-center gap-2 flex-wrap" style={{ color: "var(--muted)" }}>
+                      <Avatar username={opponentName} />
+                      {t("lobby.game.withOpponent", { name: opponentName || t("common.unknown") })} <Rating value={opponentRating} />
+                      <Badge tone={g.local_multiplayer || won ? "active" : "closed"}>
+                        {g.local_multiplayer || won ? <Trophy size={12} /> : <Skull size={12} />} {g.local_multiplayer ? t("lobby.badge.wonBy", { name: winnerName }) : (won ? t("lobby.badge.won") : t("lobby.badge.lost"))}
+                      </Badge>
+                    </span>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button className="btn btn-icon" title={t("lobby.actions.viewGame")} onClick={() => router.push(`/game/${g.id}`)}>
+                        <Eye size={14} />
+                      </button>
+                      <button className="btn btn-icon" title={t("lobby.actions.archive")} onClick={() => archiveFinished(g.id)} disabled={busy}>
+                        <Archive size={14} />
+                      </button>
+                      <button className="btn btn-icon" title={t("lobby.actions.ignore")} onClick={() => dismissFinished(g.id)} disabled={busy}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
         </section>
       )}
 
