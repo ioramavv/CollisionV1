@@ -5,7 +5,7 @@ import {
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Square, Trophy, RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter } from "@/lib/collisionEngine";
+import { freshState, applyMove, applyPlaceTool, bothPawnsCanReachCenter, DIRS } from "@/lib/collisionEngine";
 import { chooseComputerTurn } from "@/lib/collisionAI";
 import { DirBtn, ToolIcon, BoardLoader } from "@/lib/ui";
 import Board, { diffMove, diffPlace } from "@/lib/Board";
@@ -269,6 +269,19 @@ export default function TutorialPage() {
 
   const highlightPawn = stepIndex === 0 && !selected ? { r: state.pawnPos.A[0], c: state.pawnPos.A[1] } : null;
 
+  // Zelfde stuiterdoelen-markering als op de echte spelpagina — cellen die
+  // het geselecteerde stuk in één richting kan bereiken, aantikbaar op het
+  // bord zelf i.p.v. enkel via de pijltjesknoppen hieronder (zie
+  // app/(app)/game/[id]/page.js).
+  const moveTargets = (isMyTurn && !placing && selected)
+    ? Object.keys(DIRS)
+        .map((dir) => {
+          const result = applyMove(state, "A", [selected.r, selected.c], dir, false);
+          return result.ok ? { r: result.dest[0], c: result.dest[1], dir } : null;
+        })
+        .filter(Boolean)
+    : [];
+
   if (checkingAuth) return <main className="min-h-screen flex items-center justify-center"><BoardLoader /></main>;
 
   return (
@@ -315,11 +328,24 @@ export default function TutorialPage() {
             placeAnim={placeAnim}
             interactive={isMyTurn}
             highlight={highlightPawn}
-            onCellClick={(r, c) => (placing ? handlePlaceClick(r, c) : selectCell(r, c))}
+            onCellClick={(r, c) => {
+              if (placing) { handlePlaceClick(r, c); return; }
+              const target = selected && moveTargets.find((t) => t.r === r && t.c === c);
+              if (target) { handleMove(target.dir); return; }
+              selectCell(r, c);
+            }}
+            moveTargets={moveTargets}
             labelTopLeft="Computer"
             labelBottomRight={t("tutorial.labelYou")}
           />
 
+          {/* Zelfde gemarkeerde stuiterdoelen als op de echte spelpagina —
+              rechtstreeks op het bord aantikken werkt dus ook hier al. De
+              pijltjesknoppen blijven daarnaast gewoon staan (i.p.v. ze op
+              mobiel te verbergen zoals op de spelpagina) — de uitlegpagina
+              heeft geen eigen vaste mobiele actiebalk als vervanger, dus dit
+              blijft de enige manier om STOP te bereiken op een klein
+              scherm. */}
           {selected && isMyTurn && (
             <div className="grid grid-cols-3 gap-1">
               <div />
