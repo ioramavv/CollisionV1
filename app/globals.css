@@ -26,9 +26,6 @@
   --panel-line: #3d362c;
   --text: #f0ece2;
   --muted: #a89b87;
-  /* Tekst rechtstreeks op de pagina-achtergrond (bv. BoardLoader) — hier
-     gelijk aan --muted, want bg en panel zijn hier allebei donker. */
-  --bg-text: #a89b87;
   /* Eindkleur van de winnaarsoverlay-gradient (.win-panel hieronder). */
   --panel-shade: #1b1712;
   /* "Sticky note"-kaartje op de uitlegpagina — hergebruikt bewust de vaste
@@ -52,14 +49,17 @@
   --bg: var(--board-light);
   --panel: var(--walnut);
   --panel-line: #5c4128;
-  --text: #f3e6cf;
-  --muted: #d8bf8c;
-  /* Voor tekst die rechtstreeks op de (nu lichte) pagina-achtergrond staat
-     i.p.v. op een donker walnoot-blok — bv. het "Laden..."-schermpje vóór
-     de blokken geladen zijn (zie BoardLoader in lib/ui.js). --muted zelf
-     blijft licht (voor gebruik ín de donkere blokken), dus hiervoor een
-     donkere variant zodat dat ene geval ook leesbaar blijft. */
-  --bg-text: var(--panel-line);
+  /* Donkerbruin i.p.v. de lichte tekst van Donker/eerdere Woody-versie —
+     de páginaachtergrond is nu immers lichtbeige, dus tekst die daar
+     rechtstreeks op staat (paginatitels, tekst buiten een blok, enz.) moet
+     donker zijn om leesbaar te blijven. --text/--muted zijn hiermee het
+     algemene, buiten-de-blokken-geval; ín de blokken (en andere donkere
+     walnoot-vlakken: zijbalk, kopbalk, onderbalk, actiebalk, winnaarsbord)
+     worden ze hieronder weer teruggezet naar licht, want die vlakken zelf
+     blijven donker. CSS-variabelen mogen op elk niveau opnieuw gezet
+     worden — dat maakt deze truc mogelijk zonder duizend losse overrides. */
+  --text: var(--walnut);
+  --muted: #6b4a30;
   --panel-shade: #1f130b;
   /* Zelfde combinatie als Donker (licht kaartje op een donkere achtergrond) —
      Woody is immers ook een donker thema. */
@@ -72,6 +72,20 @@
   --bg-pattern: rgba(0, 0, 0, 0);
 }
 
+/* De donkere walnoot-vlakken binnen Woody (blokken, zijbalk, mobiele
+   kopbalk/onderbalk, spelactiebalk, winnaarsbord) zetten --text/--muted
+   weer terug naar licht — die vlakken zijn zelf donker gebleven, alleen de
+   páginaachtergrond erómheen werd lichtbeige (zie hierboven). */
+[data-theme="woody"] .panel,
+[data-theme="woody"] .sidebar,
+[data-theme="woody"] .mobile-topbar,
+[data-theme="woody"] .bottom-nav,
+[data-theme="woody"] .game-action-bar,
+[data-theme="woody"] .win-panel {
+  --text: #f3e6cf;
+  --muted: #d8bf8c;
+}
+
 /* Licht — warm wit linnen i.p.v. het koele, kale grijs van eerst (voelde te
    "computer" aan). Kleuren getrokken richting crème/linnen; het geblokte
    patroon hieronder wordt voor dit thema vervangen door een echte
@@ -82,9 +96,6 @@
   --panel-line: #ddd4c0;
   --text: #2a251d;
   --muted: #8c8270;
-  /* Tekst rechtstreeks op de pagina-achtergrond (bv. BoardLoader) — hier
-     gelijk aan --muted, want bg en panel zijn hier allebei licht. */
-  --bg-text: #8c8270;
   --panel-shade: #ded4bd;
   --callout-bg: var(--walnut);
   --callout-text: var(--maple);
