@@ -15,11 +15,9 @@
   --maple: #f1e3c2;
 }
 
-/* Donker (standaard) — de oorspronkelijke, altijd-al-bestaande kleuren van de
-   site. :root bevat deze waarden ook los (niet alleen via [data-theme="dark"])
-   zodat er geen flits van onopgemaakte kleuren is vóórdat lib/theme.js de
-   daadwerkelijke themakeuze heeft opgehaald en data-theme heeft gezet. */
-:root,
+/* Donker — de oorspronkelijke, altijd-al-bestaande kleuren van de site, nu
+   niet meer de standaard (zie Woody hieronder) maar nog gewoon een van de
+   drie keuzes. */
 [data-theme="dark"] {
   --bg: #17140f;
   --panel: #221e1a;
@@ -37,14 +35,21 @@
   --bg-pattern: rgba(216, 191, 140, 0.04);
 }
 
-/* Woody: de blokken ("panels") krijgen de echte walnoot-houtnerffoto van
-   het spelbord (zie [data-theme="woody"] .panel hieronder) — maar de
+/* Woody (standaard) — zowel ingelogd als op de laad-/inlog-/aankomstpagina
+   e.d., dus overal waar nog geen ander thema gekozen is (zie DEFAULT_THEME
+   in lib/theme.js). :root bevat deze waarden ook los (niet alleen via
+   [data-theme="woody"]) zodat er geen flits van onopgemaakte kleuren is
+   vóórdat lib/theme.js de daadwerkelijke themakeuze heeft opgehaald en
+   data-theme heeft gezet.
+   De blokken ("panels") krijgen de echte walnoot-houtnerffoto van het
+   spelbord (zie [data-theme="woody"] .panel hieronder) — maar de
    páginaachtergrond erómheen is juist de lichte beige bordkleur zelf
    (--board-light), in hetzelfde geblokte patroon als de speelvakken (zie
    de conic-gradient-checker bij body hieronder). Twee bewust verschillende
    lagen dus: donker walnoothout in de blokken, lichtbeige bordvakjes
    errond — precies zoals op het echte bord de pionnen/velden donker hout
    naast lichte vakjes tonen. --panel blijft var(--walnut) voor de blokken. */
+:root,
 [data-theme="woody"] {
   --bg: var(--board-light);
   --panel: var(--walnut);
