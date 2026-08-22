@@ -657,7 +657,7 @@ export default function GamePage() {
       {game.vs_computer && (
         <p
           className="text-xs flex items-center gap-2"
-          style={{ color: "#e0b24c", background: "rgba(224, 178, 76, 0.12)", border: "1px solid rgba(224, 178, 76, 0.3)", borderRadius: 8, padding: "6px 12px" }}
+          style={{ color: "#000", background: "rgba(224, 178, 76, 0.88)", border: "1px solid rgba(224, 178, 76, 0.6)", borderRadius: 8, padding: "6px 12px" }}
         >
           <TriangleAlert size={14} strokeWidth={2} />
           {t("lobby.modal.computer.betaWarning")}
