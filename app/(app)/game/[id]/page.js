@@ -490,10 +490,16 @@ export default function GamePage() {
   }
 
   // Pijltjestoetsen bewegen het geselecteerde stuk, Enter bevestigt (zelfde
-  // als de STOP-knop).
+  // als de STOP-knop), B is de sneltoets voor "Plaats hulpstuk" (zelfde
+  // voorwaarden als die knop: niet als je deze beurt al bewoog, en niet
+  // zonder hulpstukken over). Genegeerd terwijl je in een tekstveld typt
+  // (bv. de chat hiernaast) — anders zou een gewone "b" in een berichtje
+  // per ongeluk de plaatsmodus aan-/uitzetten.
   useEffect(() => {
     function onKeyDown(e) {
       if (viewingHistory || !isMyTurn) return;
+      const target = e.target;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
       const dirByKey = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
       if (dirByKey[e.key]) {
         if (!selected || placing) return;
@@ -503,11 +509,15 @@ export default function GamePage() {
         if (!selected || !movedThisTurn) return;
         e.preventDefault();
         endTurn();
+      } else if (e.key.toLowerCase() === "b") {
+        if (movedThisTurn || state.toolsRemaining[effectiveRole] <= 0) return;
+        e.preventDefault();
+        togglePlacing();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [viewingHistory, isMyTurn, selected, placing, movedThisTurn, state]);
+  }, [viewingHistory, isMyTurn, selected, placing, movedThisTurn, state, effectiveRole]);
 
   function resign() {
     if (!myRole || !state || state.winner) return;
