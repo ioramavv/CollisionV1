@@ -15,26 +15,6 @@
   --maple: #f1e3c2;
 }
 
-/* Donker — de oorspronkelijke, altijd-al-bestaande kleuren van de site, nu
-   niet meer de standaard (zie Woody hieronder) maar nog gewoon een van de
-   drie keuzes. */
-[data-theme="dark"] {
-  --bg: #17140f;
-  --panel: #221e1a;
-  --panel-line: #3d362c;
-  --text: #f0ece2;
-  --muted: #a89b87;
-  /* Eindkleur van de winnaarsoverlay-gradient (.win-panel hieronder). */
-  --panel-shade: #1b1712;
-  /* "Sticky note"-kaartje op de uitlegpagina — hergebruikt bewust de vaste
-     bordkleuren (omgedraaid per thema) i.p.v. eigen losse hex-waarden. */
-  --callout-bg: var(--maple);
-  --callout-text: var(--walnut);
-  /* Kleur van het geblokte achtergrondpatroon hieronder bij body — licht
-     genoeg om als textuur te lezen tegen de donkere achtergrond. */
-  --bg-pattern: rgba(216, 191, 140, 0.04);
-}
-
 /* Woody (standaard) — zowel ingelogd als op de laad-/inlog-/aankomstpagina
    e.d., dus overal waar nog geen ander thema gekozen is (zie DEFAULT_THEME
    in lib/theme.js). :root bevat deze waarden ook los (niet alleen via
@@ -101,6 +81,33 @@
   --text: #f3e6cf;
   --muted: #d8bf8c;
   color: var(--text);
+}
+
+/* Donker — de oorspronkelijke, altijd-al-bestaande kleuren van de site, nu
+   niet meer de standaard (zie Woody hierboven) maar nog gewoon een van de
+   drie keuzes. Staat bewust NÁ het :root-gedeelte van Woody hierboven —
+   :root matcht namelijk altijd het <html>-element, dús óók zodra
+   data-theme="dark" gezet is, met exact dezelfde specificiteit als een
+   attribuutselector. Bij gelijke specificiteit wint de regel die later in
+   het bestand staat; stond dit blok vóór het :root-gedeelte (zoals eerder),
+   dan overschreef Woody's :root-waarden Donker's eigen waarden alsnog voor
+   iedereen met data-theme="dark" — precies het "Donker ziet er ineens
+   compleet anders uit"-probleem. */
+[data-theme="dark"] {
+  --bg: #17140f;
+  --panel: #221e1a;
+  --panel-line: #3d362c;
+  --text: #f0ece2;
+  --muted: #a89b87;
+  /* Eindkleur van de winnaarsoverlay-gradient (.win-panel hieronder). */
+  --panel-shade: #1b1712;
+  /* "Sticky note"-kaartje op de uitlegpagina — hergebruikt bewust de vaste
+     bordkleuren (omgedraaid per thema) i.p.v. eigen losse hex-waarden. */
+  --callout-bg: var(--maple);
+  --callout-text: var(--walnut);
+  /* Kleur van het geblokte achtergrondpatroon hieronder bij body — licht
+     genoeg om als textuur te lezen tegen de donkere achtergrond. */
+  --bg-pattern: rgba(216, 191, 140, 0.04);
 }
 
 /* Licht — warm wit linnen i.p.v. het koele, kale grijs van eerst (voelde te
