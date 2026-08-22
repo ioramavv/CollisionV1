@@ -80,7 +80,18 @@
 /* De donkere walnoot-vlakken binnen Woody (blokken, zijbalk, mobiele
    kopbalk/onderbalk, spelactiebalk, winnaarsbord) zetten --text/--muted
    weer terug naar licht — die vlakken zijn zelf donker gebleven, alleen de
-   páginaachtergrond erómheen werd lichtbeige (zie hierboven). */
+   páginaachtergrond erómheen werd lichtbeige (zie hierboven).
+   De expliciete `color: var(--text)` hier is nodig naast het opnieuw
+   zetten van de variabele zelf: body { color: var(--text); } hierboven
+   berekent die kleur maar één keer, op body-niveau, en die berekende
+   (donkere) kleur erft daarna gewoon door naar elk kind — ook binnen een
+   blok — tenzij er ergens onderweg opnieuw `color: var(--text)` staat, wat
+   de kleur dan opnieuw laat oplossen met de --text die op dát niveau geldt
+   (hier dus weer licht). Zonder deze regel bleef tekst die nergens expliciet
+   een kleur meekrijgt (bv. "Jij bent aan zet" in het zijpaneel, of een
+   geplaatste melding in het admin-blok) donker-op-donker, ook al gebruikte
+   het element ernaast met een expliciete var(--muted)/var(--text) al wél
+   de juiste lichte kleur. */
 [data-theme="woody"] .panel,
 [data-theme="woody"] .sidebar,
 [data-theme="woody"] .mobile-topbar,
@@ -89,6 +100,7 @@
 [data-theme="woody"] .win-panel {
   --text: #f3e6cf;
   --muted: #d8bf8c;
+  color: var(--text);
 }
 
 /* Licht — warm wit linnen i.p.v. het koele, kale grijs van eerst (voelde te
