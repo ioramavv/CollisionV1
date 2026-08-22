@@ -320,6 +320,27 @@ body {
   border-color: var(--accent);
 }
 
+/* Bordformaat (lib/Board.js) — op mobiel/tablet (tot 1024px) simpelweg
+   88vw met een vast maximum, zoals altijd. Vanaf 1024px (een breedte waarop
+   het bord + het zijpaneel + de navigatiebalk gegarandeerd naast elkaar
+   passen) schaalt het bord juist mee met het beschikbare venster i.p.v.
+   daar altijd hetzelfde (kleine) vaste formaat aan te houden — 46vw blijft
+   ruim onder wat er op zo'n breedte daadwerkelijk over is (dus nooit
+   overlap met het zijpaneel), 74vh houdt rekening met de hoogte van het
+   venster zelf, en 660px is enkel een bovengrens zodat het bord op een heel
+   groot scherm niet buitensporig groot wordt. */
+.board-frame {
+  width: min(88vw, 484px);
+  height: min(88vw, 484px);
+}
+
+@media (min-width: 1024px) {
+  .board-frame {
+    width: min(46vw, 74vh, 660px);
+    height: min(46vw, 74vh, 660px);
+  }
+}
+
 /* Opgeven-knop rechtsboven het bord, in dezelfde gereserveerde
    naamplaat-ruimte als de linksboven-naamplaat (zie LABEL_SPACE in
    lib/Board.js) — staat dus nooit over het bord zelf heen. */
