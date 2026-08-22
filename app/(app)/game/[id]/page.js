@@ -489,12 +489,13 @@ export default function GamePage() {
     setPendingPlacement(null);
   }
 
-  // Pijltjestoetsen bewegen het geselecteerde stuk, Enter bevestigt (zelfde
-  // als de STOP-knop), B is de sneltoets voor "Plaats hulpstuk" (zelfde
-  // voorwaarden als die knop: niet als je deze beurt al bewoog, en niet
-  // zonder hulpstukken over). Genegeerd terwijl je in een tekstveld typt
-  // (bv. de chat hiernaast) — anders zou een gewone "b" in een berichtje
-  // per ongeluk de plaatsmodus aan-/uitzetten.
+  // Pijltjestoetsen bewegen het geselecteerde stuk, Enter bevestigt — óf een
+  // klaarstaande hulpstukplaatsing (zelfde als de Bevestigen-knop), óf
+  // anders de beurt (zelfde als de STOP-knop) — B is de sneltoets voor
+  // "Plaats hulpstuk" (zelfde voorwaarden als die knop: niet als je deze
+  // beurt al bewoog, en niet zonder hulpstukken over). Genegeerd terwijl je
+  // in een tekstveld typt (bv. de chat hiernaast) — anders zou een gewone
+  // "b" in een berichtje per ongeluk de plaatsmodus aan-/uitzetten.
   useEffect(() => {
     function onKeyDown(e) {
       if (viewingHistory || !isMyTurn) return;
@@ -506,9 +507,13 @@ export default function GamePage() {
         e.preventDefault();
         handleMove(dirByKey[e.key]);
       } else if (e.key === "Enter") {
-        if (!selected || !movedThisTurn) return;
-        e.preventDefault();
-        endTurn();
+        if (pendingPlacement) {
+          e.preventDefault();
+          confirmPlacement();
+        } else if (selected && movedThisTurn) {
+          e.preventDefault();
+          endTurn();
+        }
       } else if (e.key.toLowerCase() === "b") {
         if (movedThisTurn || state.toolsRemaining[effectiveRole] <= 0) return;
         e.preventDefault();
@@ -517,7 +522,7 @@ export default function GamePage() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [viewingHistory, isMyTurn, selected, placing, movedThisTurn, state, effectiveRole]);
+  }, [viewingHistory, isMyTurn, selected, placing, movedThisTurn, state, effectiveRole, pendingPlacement]);
 
   function resign() {
     if (!myRole || !state || state.winner) return;
